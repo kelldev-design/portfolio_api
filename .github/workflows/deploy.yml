@@ -31,6 +31,8 @@ jobs:
       # result. The role's only permission is SendCommand against this box.
       - name: Run deploy on the instance
         run: |
+          set -euo pipefail
+
           command_id=$(aws ssm send-command \
             --document-name AWS-RunShellScript \
             --targets "Key=instanceids,Values=${{ vars.AWS_INSTANCE_ID }}" \
@@ -40,18 +42,32 @@ jobs:
             --query Command.CommandId --output text)
 
           echo "SSM command: $command_id"
-          aws ssm wait command-executed \
-            --command-id "$command_id" \
-            --instance-id "${{ vars.AWS_INSTANCE_ID }}" || true
+
+          # Poll rather than `aws ssm wait command-executed`: the waiter gives up
+          # after ~100s, but npm ci plus a webpack build on a t4g.nano runs well
+          # past that, and a still-running deploy would be reported as a failure.
+          status=Pending
+          for _ in $(seq 1 100); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
+              --query Status --output text)
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 10
+          done
 
           aws ssm get-command-invocation \
             --command-id "$command_id" \
             --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
-            --query '{Status:Status,Out:StandardOutputContent,Err:StandardErrorContent}' \
-            --output text
+            --query StandardOutputContent --output text | tail -30
 
-          status=$(aws ssm get-command-invocation \
-            --command-id "$command_id" \
-            --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
-            --query Status --output text)
-          [ "$status" = "Success" ] || exit 1
+          if [ "$status" != "Success" ]; then
+            echo "::error::deploy finished with status $status"
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
+              --query StandardErrorContent --output text | tail -40
+            exit 1
+          fi
