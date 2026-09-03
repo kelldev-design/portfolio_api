@@ -3,6 +3,12 @@ variable "region" {
   default = "us-east-1"
 }
 
+variable "aws_profile" {
+  type        = string
+  default     = "kelldev-mgmt"
+  description = "AWS CLI profile. kelldev-mgmt is AdministratorAccess in account 003149845291, where the portfolio domain, buckets and distributions live. The `default` profile is a scoped S3/CloudFront deploy user and cannot apply this."
+}
+
 variable "repo_url" {
   type        = string
   default     = "https://github.com/kelldev-design/portfolio_api.git"

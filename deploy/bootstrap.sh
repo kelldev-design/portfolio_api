@@ -116,12 +116,25 @@ systemctl enable "pm2-${APP_USER}"
 ###############################################################################
 cat > /etc/nginx/conf.d/portfolio-api.conf <<NGINX
 server {
+    # Both stacks, both default_server. AL2023 ships its own :80 server block
+    # inside /etc/nginx/nginx.conf (NOT conf.d/default.conf) which listens on
+    # IPv4 and IPv6 and serves static files; claiming default_server on both
+    # here neutralises it without editing the vendor config. Its server_name is
+    # `_`, which never matches a real Host header.
     listen 80 default_server;
+    listen [::]:80 default_server;
     server_name ${SERVER_NAME};
 
     location / {
         proxy_pass http://127.0.0.1:4000;
         proxy_http_version 1.1;
+
+        # A cold FRED refresh re-upserts ~155k observations synchronously inside
+        # the request and takes well over nginx's 60s default. The warm timer
+        # below should keep that off the request path; this is the safety net.
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
@@ -132,8 +145,41 @@ server {
 }
 NGINX
 
-# AL2023's stock nginx.conf ships its own default :80 server; ours replaces it.
-sed -i '/^\s*server\s*{/,/^\s*}/d' /etc/nginx/conf.d/default.conf 2>/dev/null || true
 nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
+
+###############################################################################
+# Market data warmer. FRED series go stale after FRED_TTL_HOURS (default 12),
+# and the refresh runs inside whichever request arrives first — a minute-plus
+# wait for a real visitor, twice a day. Warming on a shorter interval keeps the
+# refresh off the request path.
+#
+# This is a mitigation, not a fix: the app refetches every series' full history
+# rather than only observations after the last stored date.
+###############################################################################
+cat > /etc/systemd/system/portfolio-api-warm.service <<'UNIT'
+[Unit]
+Description=Warm the portfolio-api FRED market data cache
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl -sS --max-time 600 -o /dev/null http://127.0.0.1:4000   -H 'content-type: application/json'   --data-raw '{"query":"{marketSeries{fredId}}"}'
+UNIT
+
+cat > /etc/systemd/system/portfolio-api-warm.timer <<'UNIT'
+[Unit]
+Description=Warm portfolio-api market data ahead of the 12h FRED TTL
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now portfolio-api-warm.timer
