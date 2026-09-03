@@ -172,6 +172,18 @@ export const seriesRegistry: SeriesDefinition[] = [
     unit: percent
   },
   {
+    fredId: 'BAMLH0A0HYM2',
+    label: 'High Yield OAS',
+    category: MarketCategories.Credit,
+    unit: percent
+  },
+  {
+    fredId: 'BAMLC0A0CM',
+    label: 'Investment Grade OAS',
+    category: MarketCategories.Credit,
+    unit: percent
+  },
+  {
     fredId: 'SOFR',
     label: 'SOFR',
     category: MarketCategories.Policy,
