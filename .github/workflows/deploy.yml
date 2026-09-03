@@ -16,6 +16,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Inert until the Terraform module has actually been applied and the two
+    # repo variables are set from its outputs. Without this the job fails on
+    # every push, because there is no role to assume and no instance to target.
+    # Setting the variables activates it — no workflow change needed.
+    if: vars.AWS_DEPLOY_ROLE_ARN != '' && vars.AWS_INSTANCE_ID != ''
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
