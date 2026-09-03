@@ -36,9 +36,17 @@ export interface YieldCurvePointResult {
   value: number | null;
 }
 
+export interface YieldCurveComparisonResult {
+  key: string;
+  label: string;
+  date: string;
+  points: YieldCurvePointResult[];
+}
+
 export interface YieldCurveResult {
   date: string;
   points: YieldCurvePointResult[];
+  comparisons: YieldCurveComparisonResult[];
 }
 
 interface SeriesFilters {
@@ -271,34 +279,52 @@ export const getMarketSeries = async (
   })
 }
 
-export const getYieldCurve = async (
+// Comparison curves rendered alongside the current one. Offsets are in calendar days;
+// each resolves to the most recent print on or before that date, which lands on the
+// previous trading day across weekends and holidays without a market calendar.
+const CURVE_COMPARISONS: { key: string; label: string; daysBack: number }[] = [
+  {
+    key: 'dayAgo',
+    label: '1 Day Ago',
+    daysBack: 1
+  },
+  {
+    key: 'weekAgo',
+    label: '1 Week Ago',
+    daysBack: 7
+  }
+]
+
+const shiftDays = (date: Date, days: number): Date => {
+  const shifted = new Date(date)
+
+  shifted.setUTCDate(shifted.getUTCDate() - days)
+
+  return shifted
+}
+
+/**
+ * Resolves one curve snapshot: the most recent observation date on or before `boundary`
+ * (or the latest overall when omitted), and every curve tenor's value on that date.
+ * Returns null when no observation exists in range.
+ */
+const loadCurveSnapshot = async (
   prisma: PrismaClient,
-  date?: string | null
-): Promise<YieldCurveResult> => {
-  const rows = await prepareSeries(prisma, curveSeries)
-
-  const seriesIdToFredId = new Map(curveSeries
-    .map(definition => [ rows.get(definition.fredId)?.id, definition.fredId ] as const)
-    .filter((pair): pair is readonly [ number, string ] => typeof pair[0] === 'number'))
-
-  const seriesIds = [ ...seriesIdToFredId.keys() ]
-  const requested = date ? parseBoundary(date) : undefined
-
+  seriesIds: number[],
+  seriesIdToFredId: Map<number, string>,
+  boundary?: Date
+): Promise<{ date: Date; points: YieldCurvePointResult[] } | null> => {
   const anchor = await prisma.marketObservation.findFirst({
     where: {
       seriesId: { in: seriesIds },
       // Fall back to the most recent print on or before the requested date -- markets are
       // closed on weekends and holidays, so an exact match is not guaranteed
-      ...requested ? { date: { lte: requested } } : {}
+      ...boundary ? { date: { lte: boundary } } : {}
     },
     orderBy: { date: 'desc' }
   })
 
-  if (!anchor) {
-    throw new Error(date
-      ? `No yield curve data available on or before ${date}`
-      : 'No yield curve data available')
-  }
+  if (!anchor) return null
 
   const observations = await prisma.marketObservation.findMany({
     where: {
@@ -316,12 +342,64 @@ export const getYieldCurve = async (
   }, []))
 
   return {
-    date: toIsoDate(anchor.date),
+    date: anchor.date,
     points: curveSeries.map(definition => ({
       fredId: definition.fredId,
       label: definition.label,
       months: definition.months ?? 0,
       value: valueByFredId.get(definition.fredId) ?? null
     }))
+  }
+}
+
+export const getYieldCurve = async (
+  prisma: PrismaClient,
+  date?: string | null
+): Promise<YieldCurveResult> => {
+  const rows = await prepareSeries(prisma, curveSeries)
+
+  const seriesIdToFredId = new Map(curveSeries
+    .map(definition => [ rows.get(definition.fredId)?.id, definition.fredId ] as const)
+    .filter((pair): pair is readonly [ number, string ] => typeof pair[0] === 'number'))
+
+  const seriesIds = [ ...seriesIdToFredId.keys() ]
+  const requested = date ? parseBoundary(date) : undefined
+
+  const current = await loadCurveSnapshot(prisma, seriesIds, seriesIdToFredId, requested)
+
+  if (!current) {
+    throw new Error(date
+      ? `No yield curve data available on or before ${date}`
+      : 'No yield curve data available')
+  }
+
+  const snapshots = await Promise.all(CURVE_COMPARISONS.map(comparison =>
+    loadCurveSnapshot(prisma, seriesIds, seriesIdToFredId, shiftDays(current.date, comparison.daysBack))))
+
+  const comparisons = CURVE_COMPARISONS.reduce<YieldCurveComparisonResult[]>((collected, comparison, index) => {
+    const snapshot = snapshots[index]
+
+    // Drop a comparison that resolved onto a date already shown -- sparse history can
+    // otherwise emit two identical curves under different labels.
+    if (!snapshot) return collected
+
+    const seen = [ current.date, ...collected.map(entry => new Date(`${entry.date}T00:00:00.000Z`)) ]
+
+    if (seen.some(date => date.getTime() === snapshot.date.getTime())) return collected
+
+    collected.push({
+      key: comparison.key,
+      label: comparison.label,
+      date: toIsoDate(snapshot.date),
+      points: snapshot.points
+    })
+
+    return collected
+  }, [])
+
+  return {
+    date: toIsoDate(current.date),
+    points: current.points,
+    comparisons
   }
 }

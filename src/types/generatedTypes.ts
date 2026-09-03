@@ -142,7 +142,16 @@ export type QueryYieldCurveArgs = {
 
 export type YieldCurve = {
   __typename?: 'YieldCurve';
+  comparisons: Array<YieldCurveComparison>;
   date: Scalars['String'];
+  points: Array<YieldCurvePoint>;
+};
+
+export type YieldCurveComparison = {
+  __typename?: 'YieldCurveComparison';
+  date: Scalars['String'];
+  key: Scalars['String'];
+  label: Scalars['String'];
   points: Array<YieldCurvePoint>;
 };
 
@@ -240,6 +249,7 @@ export type ResolversTypes = ResolversObject<{
   Query: ResolverTypeWrapper<{}>;
   String: ResolverTypeWrapper<Scalars['String']>;
   YieldCurve: ResolverTypeWrapper<YieldCurve>;
+  YieldCurveComparison: ResolverTypeWrapper<YieldCurveComparison>;
   YieldCurvePoint: ResolverTypeWrapper<YieldCurvePoint>;
 }>;
 
@@ -261,6 +271,7 @@ export type ResolversParentTypes = ResolversObject<{
   Query: {};
   String: Scalars['String'];
   YieldCurve: YieldCurve;
+  YieldCurveComparison: YieldCurveComparison;
   YieldCurvePoint: YieldCurvePoint;
 }>;
 
@@ -355,7 +366,16 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
 }>;
 
 export type YieldCurveResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurve'] = ResolversParentTypes['YieldCurve']> = ResolversObject<{
+  comparisons?: Resolver<Array<ResolversTypes['YieldCurveComparison']>, ParentType, ContextType>;
   date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  points?: Resolver<Array<ResolversTypes['YieldCurvePoint']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type YieldCurveComparisonResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurveComparison'] = ResolversParentTypes['YieldCurveComparison']> = ResolversObject<{
+  date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   points?: Resolver<Array<ResolversTypes['YieldCurvePoint']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -381,6 +401,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   ProjectImage?: ProjectImageResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   YieldCurve?: YieldCurveResolvers<ContextType>;
+  YieldCurveComparison?: YieldCurveComparisonResolvers<ContextType>;
   YieldCurvePoint?: YieldCurvePointResolvers<ContextType>;
 }>;
 

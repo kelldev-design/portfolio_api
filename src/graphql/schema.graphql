@@ -77,9 +77,17 @@ type YieldCurvePoint {
   value: Float
 }
 
+type YieldCurveComparison {
+  key: String!
+  label: String!
+  date: String!
+  points: [YieldCurvePoint!]!
+}
+
 type YieldCurve {
   date: String!
   points: [YieldCurvePoint!]!
+  comparisons: [YieldCurveComparison!]!
 }
 
 type Query {
