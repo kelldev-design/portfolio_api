@@ -48,6 +48,34 @@ type CreatePortfolioItemResponse {
   portfolioItem: PortfolioItem
 }
 
+type MarketObservation {
+  date: String!
+  value: Float!
+}
+
+type MarketSeries {
+  fredId: String!
+  label: String!
+  category: String!
+  unit: String!
+  lastFetchedAt: String
+  observations: [MarketObservation!]!
+  latest: MarketObservation
+  previous: MarketObservation
+}
+
+type YieldCurvePoint {
+  fredId: String!
+  label: String!
+  months: Int!
+  value: Float
+}
+
+type YieldCurve {
+  date: String!
+  points: [YieldCurvePoint!]!
+}
+
 type Query {
   links: [Link!]!
   projectImages: [ProjectImage!]!
@@ -55,6 +83,8 @@ type Query {
   products: [Product!]!
   linkTypes: [LinkType!]!
   portfolioItems: [PortfolioItem!]!
+  marketSeries(ids: [String!], category: String, from: String, to: String): [MarketSeries!]!
+  yieldCurve(date: String): YieldCurve!
 }
 
 type Mutation {

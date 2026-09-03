@@ -1,0 +1,274 @@
+import { PrismaClient } from '@prisma/client'
+import { RefreshEntry, refreshStaleSeries } from './fred'
+import {
+  SeriesDefinition,
+  curveSeries,
+  findSeries,
+  seriesRegistry,
+  syncSeriesRegistry,
+  withDerivedDependencies
+} from './seriesRegistry'
+
+export interface ObservationResult {
+  date: string;
+  value: number;
+}
+
+export interface MarketSeriesResult {
+  fredId: string;
+  label: string;
+  category: string;
+  unit: string;
+  lastFetchedAt: string | null;
+  observations: ObservationResult[];
+}
+
+export interface YieldCurvePointResult {
+  fredId: string;
+  label: string;
+  months: number;
+  value: number | null;
+}
+
+export interface YieldCurveResult {
+  date: string;
+  points: YieldCurvePointResult[];
+}
+
+interface SeriesFilters {
+  ids?: string[] | null;
+  category?: string | null;
+  from?: string | null;
+  to?: string | null;
+}
+
+export const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10)
+
+const parseBoundary = (value?: string | null): Date | undefined => {
+  if (!value) return undefined
+
+  const date = new Date(`${value}T00:00:00.000Z`)
+
+  if (Number.isNaN(date.getTime())) throw new Error(`Invalid date '${value}'; expected format YYYY-MM-DD`)
+
+  return date
+}
+
+const dateFilter = (from?: string | null, to?: string | null) => {
+  const gte = parseBoundary(from)
+  const lte = parseBoundary(to)
+
+  if (!gte && !lte) return undefined
+
+  return {
+    ...gte ? { gte } : {},
+    ...lte ? { lte } : {}
+  }
+}
+
+const selectDefinitions = (ids?: string[] | null, category?: string | null): SeriesDefinition[] => {
+  if (ids?.length) {
+    return ids.map(id => {
+      const definition = findSeries(id)
+
+      if (!definition) throw new Error(`Unknown market series '${id}'`)
+
+      return definition
+    })
+  }
+
+  if (category) {
+    const matches = seriesRegistry.filter(series => series.category.toLowerCase() === category.toLowerCase())
+
+    if (!matches.length) throw new Error(`Unknown market series category '${category}'`)
+
+    return matches
+  }
+
+  return seriesRegistry
+}
+
+/**
+ * Upserts the registry, then refreshes any of the given series whose data has gone stale.
+ * Returns the persisted rows keyed by fredId.
+ */
+const prepareSeries = async (prisma: PrismaClient, definitions: SeriesDefinition[]) => {
+  const rows = await syncSeriesRegistry(prisma)
+  const needed = withDerivedDependencies(definitions)
+
+  const entries = needed.reduce<RefreshEntry[]>((collected, definition) => {
+    const series = rows.get(definition.fredId)
+
+    if (series) {
+      collected.push({
+        series,
+        definition
+      })
+    }
+
+    return collected
+  }, [])
+
+  const refreshed = await refreshStaleSeries(prisma, entries)
+
+  if (!refreshed) return rows
+
+  // Re-read so lastFetchedAt reflects the refresh that just happened
+  const updated = await prisma.marketSeries.findMany()
+
+  return new Map(updated.map(row => [ row.fredId, row ]))
+}
+
+const loadObservations = async (
+  prisma: PrismaClient,
+  seriesIds: number[],
+  filters: SeriesFilters
+): Promise<Map<number, ObservationResult[]>> => {
+  const date = dateFilter(filters.from, filters.to)
+
+  const observations = await prisma.marketObservation.findMany({
+    where: {
+      seriesId: { in: seriesIds },
+      ...date ? { date } : {}
+    },
+    orderBy: [{ seriesId: 'asc' }, { date: 'asc' }]
+  })
+
+  return observations.reduce((grouped, observation) => {
+    const existing = grouped.get(observation.seriesId) ?? []
+
+    existing.push({
+      date: toIsoDate(observation.date),
+      value: observation.value
+    })
+    grouped.set(observation.seriesId, existing)
+
+    return grouped
+  }, new Map<number, ObservationResult[]>())
+}
+
+const deriveObservations = (
+  minuend: ObservationResult[],
+  subtrahend: ObservationResult[]
+): ObservationResult[] => {
+  const subtrahendByDate = new Map(subtrahend.map(observation => [ observation.date, observation.value ]))
+
+  return minuend.reduce<ObservationResult[]>((derived, observation) => {
+    const other = subtrahendByDate.get(observation.date)
+
+    if (other === undefined) return derived
+
+    derived.push({
+      date: observation.date,
+      value: Number((observation.value - other).toFixed(4))
+    })
+
+    return derived
+  }, [])
+}
+
+export const getMarketSeries = async (
+  prisma: PrismaClient,
+  filters: SeriesFilters
+): Promise<MarketSeriesResult[]> => {
+  const definitions = selectDefinitions(filters.ids, filters.category)
+  const rows = await prepareSeries(prisma, definitions)
+  const needed = withDerivedDependencies(definitions)
+
+  const seriesIds = needed
+    .map(definition => rows.get(definition.fredId)?.id)
+    .filter((id): id is number => typeof id === 'number')
+
+  const observationsBySeriesId = await loadObservations(prisma, seriesIds, filters)
+
+  const observationsByFredId = new Map(needed.map(definition => {
+    const id = rows.get(definition.fredId)?.id
+
+    return [ definition.fredId, (id !== undefined && observationsBySeriesId.get(id)) || [] ]
+  }))
+
+  return definitions.map(definition => {
+    // A derived series is never fetched itself, so report the freshness of its inputs
+    const freshnessIds = definition.derived
+      ? [ definition.derived.minuend, definition.derived.subtrahend ]
+      : [ definition.fredId ]
+
+    const fetchedDates = freshnessIds.map(fredId => rows.get(fredId)?.lastFetchedAt ?? null)
+
+    const fetchedAt = fetchedDates.some(fetched => !fetched)
+      ? null
+      : fetchedDates.reduce((oldest, current) =>
+        !oldest || current && current < oldest ? current : oldest, null as Date | null)
+
+    const observations = definition.derived
+      ? deriveObservations(
+        observationsByFredId.get(definition.derived.minuend) ?? [],
+        observationsByFredId.get(definition.derived.subtrahend) ?? []
+      )
+      : observationsByFredId.get(definition.fredId) ?? []
+
+    return {
+      fredId: definition.fredId,
+      label: definition.label,
+      category: definition.category,
+      unit: definition.unit,
+      lastFetchedAt: fetchedAt?.toISOString() ?? null,
+      observations
+    }
+  })
+}
+
+export const getYieldCurve = async (
+  prisma: PrismaClient,
+  date?: string | null
+): Promise<YieldCurveResult> => {
+  const rows = await prepareSeries(prisma, curveSeries)
+
+  const seriesIdToFredId = new Map(curveSeries
+    .map(definition => [ rows.get(definition.fredId)?.id, definition.fredId ] as const)
+    .filter((pair): pair is readonly [ number, string ] => typeof pair[0] === 'number'))
+
+  const seriesIds = [ ...seriesIdToFredId.keys() ]
+  const requested = date ? parseBoundary(date) : undefined
+
+  const anchor = await prisma.marketObservation.findFirst({
+    where: {
+      seriesId: { in: seriesIds },
+      // Fall back to the most recent print on or before the requested date -- markets are
+      // closed on weekends and holidays, so an exact match is not guaranteed
+      ...requested ? { date: { lte: requested } } : {}
+    },
+    orderBy: { date: 'desc' }
+  })
+
+  if (!anchor) {
+    throw new Error(date
+      ? `No yield curve data available on or before ${date}`
+      : 'No yield curve data available')
+  }
+
+  const observations = await prisma.marketObservation.findMany({
+    where: {
+      seriesId: { in: seriesIds },
+      date: anchor.date
+    }
+  })
+
+  const valueByFredId = new Map(observations.reduce<[ string, number ][]>((pairs, observation) => {
+    const fredId = seriesIdToFredId.get(observation.seriesId)
+
+    if (fredId) pairs.push([ fredId, observation.value ])
+
+    return pairs
+  }, []))
+
+  return {
+    date: toIsoDate(anchor.date),
+    points: curveSeries.map(definition => ({
+      fredId: definition.fredId,
+      label: definition.label,
+      months: definition.months ?? 0,
+      value: valueByFredId.get(definition.fredId) ?? null
+    }))
+  }
+}
