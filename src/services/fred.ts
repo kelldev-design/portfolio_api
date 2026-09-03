@@ -6,6 +6,10 @@ const FRED_OBSERVATIONS_URL = 'https://api.stlouisfed.org/fred/series/observatio
 const DEFAULT_OBSERVATION_START = '2000-01-01'
 const DEFAULT_TTL_HOURS = 12
 const UPSERT_BATCH_SIZE = 500
+// FRED revises published values after the fact, so an incremental refresh re-requests a
+// trailing window rather than starting exactly at the newest stored observation. Without
+// it, a correction to an already-stored value would never be picked up.
+const REVISION_OVERLAP_DAYS = 30
 const MISSING_VALUE = '.'
 
 interface FredObservation {
@@ -110,16 +114,48 @@ const persistObservations = async (
   }
 }
 
+/**
+ * The date an incremental refresh should request from: the series' newest stored
+ * observation, less the revision overlap. A series with no observations yet has no
+ * anchor, so it falls back to a full history fetch.
+ */
+const resolveObservationStart = async (
+  prisma: PrismaClient,
+  seriesId: number
+): Promise<string> => {
+  const newest = await prisma.marketObservation.findFirst({
+    where: { seriesId },
+    orderBy: { date: 'desc' },
+    select: { date: true }
+  })
+
+  if (!newest) return DEFAULT_OBSERVATION_START
+
+  const start = new Date(newest.date)
+
+  start.setUTCDate(start.getUTCDate() - REVISION_OVERLAP_DAYS)
+
+  // Never request earlier than the configured floor.
+  const floor = new Date(`${DEFAULT_OBSERVATION_START}T00:00:00.000Z`)
+
+  return (start < floor ? floor : start).toISOString().slice(0, 10)
+}
+
 export interface RefreshEntry {
   series: MarketSeries;
   definition: SeriesDefinition;
 }
 
 /**
- * Refreshes every stale, non-derived series. The FRED requests all run concurrently; the
- * writes are then applied one series at a time because SQLite serialises writers anyway and
- * parallel write transactions exhaust the connection pool. A failing series is logged and
- * skipped so the remaining series can still be served.
+ * Refreshes every stale, non-derived series. Each request starts from that series' newest
+ * stored observation less REVISION_OVERLAP_DAYS, so a refresh moves tens of rows rather
+ * than the full history while still absorbing FRED's revisions to recent values. A series
+ * with no observations yet fetches from DEFAULT_OBSERVATION_START.
+ *
+ * The FRED requests all run concurrently; the writes are then applied one series at a time
+ * because SQLite serialises writers anyway and parallel write transactions exhaust the
+ * connection pool. A failing series is logged and skipped so the remaining series can still
+ * be served.
  *
  * Returns the number of series that were successfully refreshed.
  */
@@ -131,7 +167,11 @@ export const refreshStaleSeries = async (
 
   if (!stale.length) return 0
 
-  const fetched = await Promise.allSettled(stale.map(entry => fetchObservations(entry.definition.fredId)))
+  const starts = await Promise.all(stale.map(entry => resolveObservationStart(prisma, entry.series.id)))
+
+  const fetched = await Promise.allSettled(
+    stale.map((entry, index) => fetchObservations(entry.definition.fredId, starts[index]))
+  )
 
   const failures: unknown[] = []
   let refreshed = 0
