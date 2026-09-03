@@ -62,29 +62,39 @@ on the instance if you need to debug it.
 
 ## Cutover
 
-The new instance boots with an **empty** database — `prisma migrate deploy` creates the
-schema but no rows. Do not point DNS at it until the data is moved.
+The new instance seeds itself. `src/prisma/seed.ts` has been verified field-by-field
+against the live database — all 21 portfolio items, every description, image, link,
+category and product match exactly — so `bootstrap.sh` builds a complete production
+database on first boot and **the live database never has to be copied**.
 
-1. Copy the live database off the old box:
+Market rates data is intentionally not seeded: the FRED layer refetches observations on
+its TTL, so the tables populate themselves on first use.
+
+1. `terraform apply`, then confirm the instance's own health check passed:
    ```sh
-   scp -i kelldev-design-api-2.pem \
-     ubuntu@ec2-3-85-185-143.compute-1.amazonaws.com:portfolio_api/src/prisma/dev.db .
+   aws ssm start-session --target $(terraform output -raw instance_id)
+   curl -sS localhost:4000 -H 'content-type: application/json' -d '{"query":"{__typename}"}'
    ```
-2. Push it onto the data volume as `/var/lib/portfolio-api/prod.db` (via SSM, or an
-   S3 round-trip), owned by `ec2-user`.
-3. **Reconcile the migration history before running any migration.** The old database
-   has one applied migration, `20240716023002_init`, which does not exist in this repo;
-   the repo has `20240108040130_` and `20260903033612_market_rates`, which it has never
-   seen. Baseline it, then apply the rest:
+2. Sanity-check the seeded content — expect 21 items:
    ```sh
-   npx prisma migrate resolve --applied 20240108040130_
-   npx prisma migrate deploy
+   sudo -u ec2-user -H bash -c 'cd ~/portfolio_api && npx prisma studio' # or a quick count
    ```
-4. Re-run the deploy and confirm the health check passes.
-5. Point the existing CloudFront distribution's origin at the `origin_hostname` output
+3. Point the existing CloudFront distribution's origin at the `origin_hostname` output
    (HTTP only, port 80), then verify `https://api.kelldev.design`.
-6. Only then stop the old instance. Leave it stopped for a week before terminating —
-   a stopped t2.micro costs only its EBS.
+4. Only then stop the old instance. Leave it stopped for a week before terminating — a
+   stopped t2.micro costs only its EBS, and it is the sole copy of the original database.
+
+### If you ever do need to move the live database
+
+Preserved here because the migration histories are incompatible and the failure is
+silent. The old database has one applied migration, `20240716023002_init`, which does not
+exist in this repo; the repo has `20240108040130_` and `20260903033612_market_rates`,
+which it has never seen. Baseline before applying anything:
+
+```sh
+npx prisma migrate resolve --applied 20240108040130_
+npx prisma migrate deploy
+```
 
 ## After it's up
 

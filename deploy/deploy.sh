@@ -44,6 +44,26 @@ npx prisma generate
 # will offer to reset the database — see docs/DEPLOY.md.
 npx prisma migrate deploy
 
+# First boot only: an empty database gets the portfolio content from the seed,
+# which is a verified exact mirror of production (all 21 items, every field).
+# This is why the cutover never has to copy the live database around. Market
+# rates data is deliberately not seeded — the FRED layer refetches it on TTL.
+if [ "${FIRST_BOOT}" -eq 1 ]; then
+  item_count=$(node -e '
+    const { PrismaClient } = require("@prisma/client")
+    const p = new PrismaClient()
+    p.portfolioItem.count()
+      .then(n => { console.log(n); return p.$disconnect() })
+      .catch(() => console.log("error"))
+  ')
+  if [ "${item_count}" = "0" ]; then
+    echo "empty database on first boot — seeding"
+    npx prisma db seed
+  else
+    echo "database already has ${item_count} portfolio items — not seeding"
+  fi
+fi
+
 npm run build
 
 if pm2 describe "${PM2_NAME}" > /dev/null 2>&1; then

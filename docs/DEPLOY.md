@@ -66,7 +66,11 @@ Manager, plus `DATABASE_URL` and `NODE_ENV` appended by `bootstrap.sh`. To chang
 ## Migration from the old box
 
 The `t2.micro` (`i-0e1e29099d92822ef`, Ubuntu, `ec2-3-85-185-143.compute-1.amazonaws.com`)
-ran production from 2024 until this migration. Cutover steps, including reconciling the
-diverged Prisma migration history, are in
-[deploy/terraform/README.md](../deploy/terraform/README.md#cutover). **The cutover has not
-been run yet** — the old box is still serving `api.kelldev.design`.
+ran production from 2024 until this migration. **The cutover has not been run yet** — the
+old box is still serving `api.kelldev.design`. Steps are in
+[deploy/terraform/README.md](../deploy/terraform/README.md#cutover).
+
+The new instance seeds itself rather than importing the old database:
+[src/prisma/seed.ts](../src/prisma/seed.ts) has been verified field-by-field against the
+live database and reproduces all 21 portfolio items exactly. Keep it that way — if you
+change portfolio content, change it in the seed.
