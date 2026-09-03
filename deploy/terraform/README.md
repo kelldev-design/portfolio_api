@@ -81,8 +81,23 @@ its TTL, so the tables populate themselves on first use.
    ```
 3. Point the existing CloudFront distribution's origin at the `origin_hostname` output
    (HTTP only, port 80), then verify `https://api.kelldev.design`.
-4. Only then stop the old instance. Leave it stopped for a week before terminating — a
-   stopped t2.micro costs only its EBS, and it is the sole copy of the original database.
+4. Leave the old instance **running** during the soak — do not stop it. Its address is an
+   auto-assigned public IP, not an Elastic IP, so stopping it changes both the IP and the
+   `ec2-3-85-185-143…` hostname. That hostname is the rollback target, and stopping the
+   box destroys the ability to roll back by switching the origin.
+
+   Rollback is: set the distribution's origin back to
+   `ec2-3-85-185-143.compute-1.amazonaws.com`.
+
+5. Before terminating, snapshot the root volume. It is marked `DeleteOnTermination`, so
+   terminating destroys the original database irreversibly:
+   ```sh
+   aws ec2 create-snapshot --volume-id vol-03cd5be709dabd916 \
+     --description "portfolio_api old box final state"
+   aws ec2 terminate-instances --instance-ids i-0e1e29099d92822ef
+   ```
+   Nothing else is attached — no Elastic IP to release. The old box costs ~$15/mo while it
+   runs, so a week's soak is about $3.50.
 
 ### If you ever do need to move the live database
 
