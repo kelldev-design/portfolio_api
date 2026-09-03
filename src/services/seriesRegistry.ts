@@ -210,9 +210,18 @@ export const withDerivedDependencies = (series: SeriesDefinition[]): SeriesDefin
 
 /**
  * Upserts every registry entry so the DB never needs a manual seed step.
- * Returns the persisted rows keyed by fredId.
+ * Reads happen far more often than the registry changes, so the upserts are skipped
+ * once every entry is already present. Returns the persisted rows keyed by fredId.
  */
 export const syncSeriesRegistry = async (prisma: PrismaClient) => {
+  const existing = await prisma.marketSeries.findMany()
+
+  if (existing.length === seriesRegistry.length) {
+    const byFredId = new Map(existing.map(row => [ row.fredId, row ]))
+
+    if (seriesRegistry.every(series => byFredId.has(series.fredId))) return byFredId
+  }
+
   const rows = await Promise.all(seriesRegistry.map(series => prisma.marketSeries.upsert({
     where: { fredId: series.fredId },
     update: {

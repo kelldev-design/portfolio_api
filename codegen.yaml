@@ -4,6 +4,8 @@ generates:
     config:
       useIndexSignature: true
       contextType: ../graphql/context#Context
+      mappers:
+        MarketSeries: ../services/marketData#MarketSeriesResult
     plugins:
       - typescript
       - typescript-resolvers

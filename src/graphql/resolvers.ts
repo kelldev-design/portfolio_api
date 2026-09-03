@@ -83,8 +83,8 @@ const resolvers: Resolvers = {
     productLinks: parent => parent?.links?.filter(link => link?.type?.name === LinkTypes.Product) ?? []
   },
   MarketSeries: {
-    latest: parent => parent.observations[parent.observations.length - 1] ?? null,
-    previous: parent => parent.observations[parent.observations.length - 2] ?? null
+    latest: parent => parent.recent[parent.recent.length - 1] ?? null,
+    previous: parent => parent.recent[parent.recent.length - 2] ?? null
   }
 }
 

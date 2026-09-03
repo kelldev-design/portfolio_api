@@ -1,4 +1,5 @@
 import { GraphQLResolveInfo } from 'graphql';
+import { MarketSeriesResult } from '../services/marketData';
 import { Context } from '../graphql/context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -56,8 +57,14 @@ export type MarketSeries = {
   fredId: Scalars['String'];
   label: Scalars['String'];
   lastFetchedAt?: Maybe<Scalars['String']>;
+  /**
+   * The most recent observation for the series overall. Unaffected by `from`/`to`,
+   * so a windowed chart query still reports the current value.
+   */
   latest?: Maybe<MarketObservation>;
+  /** Observations for the series, narrowed by the `from`/`to` query arguments. */
   observations: Array<MarketObservation>;
+  /** The observation before `latest`, for computing the change. Unaffected by `from`/`to`. */
   previous?: Maybe<MarketObservation>;
   unit: Scalars['String'];
 };
@@ -225,7 +232,7 @@ export type ResolversTypes = ResolversObject<{
   Link: ResolverTypeWrapper<Link>;
   LinkType: ResolverTypeWrapper<LinkType>;
   MarketObservation: ResolverTypeWrapper<MarketObservation>;
-  MarketSeries: ResolverTypeWrapper<MarketSeries>;
+  MarketSeries: ResolverTypeWrapper<MarketSeriesResult>;
   Mutation: ResolverTypeWrapper<{}>;
   PortfolioItem: ResolverTypeWrapper<PortfolioItem>;
   Product: ResolverTypeWrapper<Product>;
@@ -246,7 +253,7 @@ export type ResolversParentTypes = ResolversObject<{
   Link: Link;
   LinkType: LinkType;
   MarketObservation: MarketObservation;
-  MarketSeries: MarketSeries;
+  MarketSeries: MarketSeriesResult;
   Mutation: {};
   PortfolioItem: PortfolioItem;
   Product: Product;

@@ -59,8 +59,14 @@ type MarketSeries {
   category: String!
   unit: String!
   lastFetchedAt: String
+  """Observations for the series, narrowed by the `from`/`to` query arguments."""
   observations: [MarketObservation!]!
+  """
+  The most recent observation for the series overall. Unaffected by `from`/`to`,
+  so a windowed chart query still reports the current value.
+  """
   latest: MarketObservation
+  """The observation before `latest`, for computing the change. Unaffected by `from`/`to`."""
   previous: MarketObservation
 }
 

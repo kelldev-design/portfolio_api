@@ -21,6 +21,12 @@ export interface MarketSeriesResult {
   unit: string;
   lastFetchedAt: string | null;
   observations: ObservationResult[];
+  /**
+   * The two most recent observations for the series overall, ignoring any from/to
+   * filter, so `latest`/`previous` always describe the current value and its change
+   * even when the same query asks for a historical window of `observations`.
+   */
+  recent: ObservationResult[];
 }
 
 export interface YieldCurvePointResult {
@@ -147,6 +153,38 @@ const loadObservations = async (
   }, new Map<number, ObservationResult[]>())
 }
 
+// Enough trailing prints that a derived series still finds two dates common to both
+// of its inputs, even across holidays where only one of them printed
+const RECENT_WINDOW = 10
+
+/**
+ * Loads the trailing observations for each series ignoring any from/to filter, so
+ * `latest`/`previous` can report the true current value rather than the last value
+ * inside a requested window.
+ */
+const loadRecentObservations = async (
+  prisma: PrismaClient,
+  seriesIds: number[]
+): Promise<Map<number, ObservationResult[]>> => {
+  const perSeries = await Promise.all(seriesIds.map(async seriesId => {
+    const observations = await prisma.marketObservation.findMany({
+      where: { seriesId },
+      orderBy: { date: 'desc' },
+      take: RECENT_WINDOW
+    })
+
+    return [
+      seriesId,
+      observations.reverse().map(observation => ({
+        date: toIsoDate(observation.date),
+        value: observation.value
+      }))
+    ] as const
+  }))
+
+  return new Map(perSeries)
+}
+
 const deriveObservations = (
   minuend: ObservationResult[],
   subtrahend: ObservationResult[]
@@ -179,13 +217,31 @@ export const getMarketSeries = async (
     .map(definition => rows.get(definition.fredId)?.id)
     .filter((id): id is number => typeof id === 'number')
 
+  const filtered = Boolean(filters.from || filters.to)
   const observationsBySeriesId = await loadObservations(prisma, seriesIds, filters)
 
-  const observationsByFredId = new Map(needed.map(definition => {
-    const id = rows.get(definition.fredId)?.id
+  // Only pay for the extra reads when the window could hide the true latest print
+  const recentBySeriesId = filtered
+    ? await loadRecentObservations(prisma, seriesIds)
+    : observationsBySeriesId
 
-    return [ definition.fredId, (id !== undefined && observationsBySeriesId.get(id)) || [] ]
-  }))
+  const byFredId = (bySeriesId: Map<number, ObservationResult[]>) =>
+    new Map(needed.map(definition => {
+      const id = rows.get(definition.fredId)?.id
+
+      return [ definition.fredId, (id !== undefined && bySeriesId.get(id)) || [] ]
+    }))
+
+  const observationsByFredId = byFredId(observationsBySeriesId)
+  const recentByFredId = filtered ? byFredId(recentBySeriesId) : observationsByFredId
+
+  const resolveSeries = (definition: SeriesDefinition, source: Map<string, ObservationResult[]>) =>
+    definition.derived
+      ? deriveObservations(
+        source.get(definition.derived.minuend) ?? [],
+        source.get(definition.derived.subtrahend) ?? []
+      )
+      : source.get(definition.fredId) ?? []
 
   return definitions.map(definition => {
     // A derived series is never fetched itself, so report the freshness of its inputs
@@ -200,12 +256,8 @@ export const getMarketSeries = async (
       : fetchedDates.reduce((oldest, current) =>
         !oldest || current && current < oldest ? current : oldest, null as Date | null)
 
-    const observations = definition.derived
-      ? deriveObservations(
-        observationsByFredId.get(definition.derived.minuend) ?? [],
-        observationsByFredId.get(definition.derived.subtrahend) ?? []
-      )
-      : observationsByFredId.get(definition.fredId) ?? []
+    const observations = resolveSeries(definition, observationsByFredId)
+    const recent = resolveSeries(definition, recentByFredId)
 
     return {
       fredId: definition.fredId,
@@ -213,7 +265,8 @@ export const getMarketSeries = async (
       category: definition.category,
       unit: definition.unit,
       lastFetchedAt: fetchedAt?.toISOString() ?? null,
-      observations
+      observations,
+      recent: recent.slice(-2)
     }
   })
 }
