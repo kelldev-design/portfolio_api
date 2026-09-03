@@ -1,5 +1,6 @@
 import { LinkTypes } from '../types/types'
 import { Resolvers } from '../types/generatedTypes'
+import { getMarketSeries, getYieldCurve } from '../services/marketData'
 
 const resolvers: Resolvers = {
   Query: {
@@ -25,7 +26,9 @@ const resolvers: Resolvers = {
         homeImage: true,
         categories: true
       }
-    })
+    }),
+    marketSeries: (_parent, args, context) => getMarketSeries(context.prisma, args),
+    yieldCurve: (_parent, args, context) => getYieldCurve(context.prisma, args.date)
   },
   Mutation: {
     createPortfolioItem: async (_parent, args, context) => {
@@ -78,6 +81,10 @@ const resolvers: Resolvers = {
   PortfolioItem: {
     githubLinks: parent => parent?.links?.filter(link => link?.type?.name === LinkTypes.Github) ?? [],
     productLinks: parent => parent?.links?.filter(link => link?.type?.name === LinkTypes.Product) ?? []
+  },
+  MarketSeries: {
+    latest: parent => parent.recent[parent.recent.length - 1] ?? null,
+    previous: parent => parent.recent[parent.recent.length - 2] ?? null
   }
 }
 

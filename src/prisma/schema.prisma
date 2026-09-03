@@ -57,3 +57,24 @@ model Product {
   name          String          @unique
   PortfolioItem PortfolioItem[]
 }
+
+model MarketSeries {
+  id            Int                 @id @default(autoincrement())
+  fredId        String              @unique
+  label         String
+  category      String
+  unit          String
+  lastFetchedAt DateTime?
+  observations  MarketObservation[]
+}
+
+model MarketObservation {
+  id       Int          @id @default(autoincrement())
+  series   MarketSeries @relation(fields: [seriesId], references: [id])
+  seriesId Int
+  date     DateTime
+  value    Float
+
+  @@unique([ seriesId, date ])
+  @@index([ seriesId, date ])
+}
