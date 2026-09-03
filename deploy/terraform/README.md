@@ -60,56 +60,19 @@ terraform apply
 First boot runs `bootstrap.sh` via user-data. Watch `/var/log/cloud-init-output.log`
 on the instance if you need to debug it.
 
-## Cutover
+## Cutover (completed 2026-09-03)
 
-The new instance seeds itself. `src/prisma/seed.ts` has been verified field-by-field
-against the live database — all 21 portfolio items, every description, image, link,
-category and product match exactly — so `bootstrap.sh` builds a complete production
-database on first boot and **the live database never has to be copied**.
+Done. `api.kelldev.design` is served by this instance; CloudFront distribution
+`E3JEVHMIPGGTRH` points at the `origin_hostname` output, and the old `t2.micro`
+(`i-0e1e29099d92822ef`) has been terminated. Its final root volume survives as snapshot
+`snap-00634a3d058b30547`, the only remaining copy of the original database.
 
-Market rates data is intentionally not seeded: the FRED layer refetches observations on
-its TTL, so the tables populate themselves on first use.
+The instance seeded itself from `src/prisma/seed.ts`, which had been verified
+field-by-field against the live database first, so the old database was never copied.
+Market rates data is not seeded — the FRED layer populates it on first use.
 
-1. `terraform apply`, then confirm the instance's own health check passed:
-   ```sh
-   aws ssm start-session --target $(terraform output -raw instance_id)
-   curl -sS localhost:4000 -H 'content-type: application/json' -d '{"query":"{__typename}"}'
-   ```
-2. Sanity-check the seeded content — expect 21 items:
-   ```sh
-   sudo -u ec2-user -H bash -c 'cd ~/portfolio_api && npx prisma studio' # or a quick count
-   ```
-3. Point the existing CloudFront distribution's origin at the `origin_hostname` output
-   (HTTP only, port 80), then verify `https://api.kelldev.design`.
-4. Leave the old instance **running** during the soak — do not stop it. Its address is an
-   auto-assigned public IP, not an Elastic IP, so stopping it changes both the IP and the
-   `ec2-3-85-185-143…` hostname. That hostname is the rollback target, and stopping the
-   box destroys the ability to roll back by switching the origin.
-
-   Rollback is: set the distribution's origin back to
-   `ec2-3-85-185-143.compute-1.amazonaws.com`.
-
-5. Before terminating, snapshot the root volume. It is marked `DeleteOnTermination`, so
-   terminating destroys the original database irreversibly:
-   ```sh
-   aws ec2 create-snapshot --volume-id vol-03cd5be709dabd916 \
-     --description "portfolio_api old box final state"
-   aws ec2 terminate-instances --instance-ids i-0e1e29099d92822ef
-   ```
-   Nothing else is attached — no Elastic IP to release. The old box costs ~$15/mo while it
-   runs, so a week's soak is about $3.50.
-
-### If you ever do need to move the live database
-
-Preserved here because the migration histories are incompatible and the failure is
-silent. The old database has one applied migration, `20240716023002_init`, which does not
-exist in this repo; the repo has `20240108040130_` and `20260903033612_market_rates`,
-which it has never seen. Baseline before applying anything:
-
-```sh
-npx prisma migrate resolve --applied 20240108040130_
-npx prisma migrate deploy
-```
+To rebuild from scratch, the same path works: `terraform apply`, then confirm 21 portfolio
+items and 24 market series before pointing DNS anywhere.
 
 ## After it's up
 

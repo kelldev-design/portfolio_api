@@ -63,14 +63,36 @@ Manager, plus `DATABASE_URL` and `NODE_ENV` appended by `bootstrap.sh`. To chang
 [.env.example](../.env.example); `FRED_API_KEY` is mandatory — the market rates layer in
 [src/services/fred.ts](../src/services/fred.ts) fails at runtime without it.
 
+## Market data refresh
+
+FRED series go stale after `FRED_TTL_HOURS` (default 12) and
+[refreshStaleSeries](../src/services/fred.ts) then refetches **each series' full history**
+— about 141k observations across 24 series, roughly 59 seconds of work. It is upserts, so
+the database does not grow; measured footprint is 9.2MB on a 960MB volume.
+
+This is a deliberate choice: the box supports the load comfortably (two ~60s bursts a day
+against a ~144 credit/day burst balance), and refetching everything keeps revisions to
+historical values correct without incremental-sync logic.
+
+Two pieces of the deployment exist solely to make it invisible, and are therefore
+**load-bearing, not temporary**:
+
+- `portfolio-api-warm.timer` runs every 6 hours, comfortably inside the 12h TTL, so the
+  refresh happens off the request path. If this timer stops, a visitor absorbs the full
+  ~59s wait twice a day.
+- nginx's `proxy_read_timeout 300s`. The default 60s sits right on the refresh duration
+  and returns 504.
+
+If the history ever grows enough to make this uncomfortable, the fix is to pass
+`observation_start` to the FRED API and upsert only observations after the newest stored
+date per series.
+
 ## Migration from the old box
 
-The `t2.micro` (`i-0e1e29099d92822ef`, Ubuntu, `ec2-3-85-185-143.compute-1.amazonaws.com`)
-ran production from 2024 until this migration. **The cutover has not been run yet** — the
-old box is still serving `api.kelldev.design`. Steps are in
-[deploy/terraform/README.md](../deploy/terraform/README.md#cutover).
+Completed 2026-09-03. The hand-built `t2.micro` (`i-0e1e29099d92822ef`, Ubuntu 22.04) that
+ran production from 2024 has been terminated. Its final root volume is preserved as
+snapshot `snap-00634a3d058b30547` — the only remaining copy of the original database.
 
-The new instance seeds itself rather than importing the old database:
-[src/prisma/seed.ts](../src/prisma/seed.ts) has been verified field-by-field against the
-live database and reproduces all 21 portfolio items exactly. Keep it that way — if you
-change portfolio content, change it in the seed.
+The new instance was seeded from [src/prisma/seed.ts](../src/prisma/seed.ts) rather than
+importing that database; the seed was verified field-by-field against production first.
+Keep it that way — if you change portfolio content, change it in the seed.
