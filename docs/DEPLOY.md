@@ -78,10 +78,16 @@ Two pieces of the deployment exist solely to make it invisible, and are therefor
 **load-bearing, not temporary**:
 
 - `portfolio-api-warm.timer` runs every 6 hours, comfortably inside the 12h TTL, so the
-  refresh happens off the request path. If this timer stops, a visitor absorbs the full
-  ~59s wait twice a day.
+  refresh happens off the request path. If this timer stops, one visitor per TTL window
+  absorbs the ~59s on the `marketSeries` query specifically — not an outage.
 - nginx's `proxy_read_timeout 300s`. The default 60s sits right on the refresh duration
   and returns 504.
+
+A refresh does **not** degrade the rest of the API. Measured under a forced full refresh,
+twelve concurrent `portfolioItems` requests returned 200 in 16–119ms against a ~40ms
+baseline: Prisma's query engine does the writes off the Node event loop, so readers are
+never blocked. The portfolio site, which is the only thing `kelldev.design` queries, is
+unaffected.
 
 If the history ever grows enough to make this uncomfortable, the fix is to pass
 `observation_start` to the FRED API and upsert only observations after the newest stored
