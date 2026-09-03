@@ -8,5 +8,6 @@ export enum MarketCategories {
   Spread = 'Spread',
   Inflation = 'Inflation',
   Policy = 'Policy',
-  Credit = 'Credit'
+  Credit = 'Credit',
+  Equity = 'Equity'
 }

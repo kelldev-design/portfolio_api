@@ -172,6 +172,12 @@ export const seriesRegistry: SeriesDefinition[] = [
     unit: percent
   },
   {
+    fredId: 'SP500',
+    label: 'S&P 500',
+    category: MarketCategories.Equity,
+    unit: 'index'
+  },
+  {
     fredId: 'BAMLH0A0HYM2',
     label: 'High Yield OAS',
     category: MarketCategories.Credit,
