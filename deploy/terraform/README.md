@@ -25,9 +25,10 @@ Replaces the hand-built `t2.micro` (`i-0e1e29099d92822ef`) that ran production f
 
 ## Prerequisites (manual — not in Terraform)
 
-1. **Admin credentials in AWS account `003149845291`.** The only existing credential
-   is `user/portfolio-site-deploy`, which is S3/CloudFront-scoped and cannot create
-   any of this.
+1. **Admin credentials in AWS account `003149845291`.** The `kelldev-mgmt` SSO profile
+   (`aws sso login --profile kelldev-mgmt`), named by `var.aws_profile` for the provider
+   and literally in the `backend "s3"` block, since backends cannot read variables. The
+   `portfolio-site-deploy` user is S3/CloudFront-scoped and cannot create any of this.
 2. **State bucket + lock table**, created out-of-band (they can't manage their own
    state). Names are in [`versions.tf`](./versions.tf):
    ```sh

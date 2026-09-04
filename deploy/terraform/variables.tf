@@ -6,7 +6,7 @@ variable "region" {
 variable "aws_profile" {
   type        = string
   default     = "kelldev-mgmt"
-  description = "AWS CLI profile. kelldev-mgmt is AdministratorAccess in account 003149845291, where the portfolio domain, buckets and distributions live. The `default` profile is a scoped S3/CloudFront deploy user and cannot apply this."
+  description = "AWS CLI profile. kelldev-mgmt is AdministratorAccess in account 003149845291, where the portfolio domain, buckets and distributions live. Also named in the backend block, which cannot read variables."
 }
 
 variable "repo_url" {
