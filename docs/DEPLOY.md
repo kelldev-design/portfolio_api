@@ -27,6 +27,10 @@ Push to `main`. [.github/workflows/deploy.yml](../.github/workflows/deploy.yml) 
 OIDC deploy role and triggers `deploy.sh` on the instance over SSM. The instance pulls,
 builds, migrates, restarts pm2 and health-checks itself; CI fails if the health check does.
 
+Before merge, [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs lint and the
+production build on every pull request. It needs no AWS credentials and no database — the
+only Prisma command it runs is `prisma generate`.
+
 By hand:
 
 ```sh
