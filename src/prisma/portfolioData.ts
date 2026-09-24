@@ -345,6 +345,32 @@ const portfolioItemArray: SeedPortfolioItemType[] = [
     primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehouseblack_5WIbDqnQ6.png',
     images: [ 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehousesite-square_G5__dLkld.jpg', 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehousewhite_P7g4Vkk6g.png', 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1200-800/absinthemenumockup_1DnD6-KNl.png' ],
     description: 'Absinthe House is a bar and nightclub in Boulder, Colorado. Adobe Illustrator and Adobe InDesign were used to create the vector banner and menu. The Absinthe House website was designed using Adobe Illustrator and built in Wix.'
+  },
+  {
+    categories: [ 'design', 'development' ],
+    name: 'Clarimatch',
+    id: 169,
+    githubLinks: [],
+    productLinks: [],
+    projectId: 'clarimatch',
+    products: [ 'Brand', 'Mobile App', 'Website' ],
+    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
+    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
+    images: [],
+    description: 'Clarimatch is a health-first dating app that removes the stress of how and when to share your health conditions, connecting members with people who are looking for them and share their experience. A user health conditions are never shown publicly and are only visible to people they have matched with. Users can mark a condition as preferred or required, which soft ranks matching profiles higher in the discovery feed rather than filtering anyone out. The product is a pnpm and Turborepo monorepo containing a Next.js web application that also serves as the single backend for both platforms, and a React Native and Expo mobile app for iOS and Android that shares the same logic and data. All profiles, photos, matches, messages, health conditions, and preferences are stored in PostgreSQL and accessed through Prisma. Cloud infrastructure is defined in Terraform on AWS, and a paid subscription tier unlocks additional features.'
+  },
+  {
+    categories: [ 'development' ],
+    name: 'Kelldev Agent',
+    id: 170,
+    githubLinks: [],
+    productLinks: [],
+    projectId: 'kelldevagent',
+    products: [ 'Side Project' ],
+    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/tr:w-720,ar-1-1/kelldevagent_PLACEHOLDER.jpg',
+    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/tr:w-720,ar-1-1/kelldevagent_PLACEHOLDER.jpg',
+    images: [],
+    description: 'Kelldev Agent is a Dockerized command line tool that uses Claude Code to work across multiple git repositories. Work is described in natural language, Claude plans it interactively against the real codebase, and then executes it headlessly, creating branches, making changes, and opening pull requests. It is written in TypeScript on Node.js using ESM, with SQLite accessed through Drizzle ORM for projects, tasks, executions, and todos. A background worker polls for queued tasks and runs them one at a time per project, and a static React, Vite, and Tailwind dashboard reports project, task, execution, and system log state.'
   }]
 
 export default portfolioItemArray
