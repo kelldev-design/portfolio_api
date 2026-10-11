@@ -8,13 +8,15 @@ generator client {
 }
 
 model PortfolioItem {
-  id             Int            @id @default(autoincrement())
+  id             Int                  @id @default(autoincrement())
   description    String
-  homeImage      ProjectImage   @relation(name: "HomeImageId", fields: [homeImageId], references: [id])
-  primaryImage   ProjectImage   @relation(name: "PrimaryImageId", fields: [primaryImageId], references: [id])
-  projectId      String         @unique
-  name           String         @unique
-  projectImages  ProjectImage[]
+  homeImage      ProjectImage         @relation(name: "HomeImageId", fields: [homeImageId], references: [id])
+  primaryImage   ProjectImage         @relation(name: "PrimaryImageId", fields: [primaryImageId], references: [id])
+  projectId      String               @unique
+  name           String               @unique
+  /// Position on the site, lowest first. Set by reorderPortfolioItems.
+  sortOrder      Int                  @default(0)
+  projectImages  PortfolioItemImage[]
   categories     Category[]
   links          Link[]
   products       Product[]
@@ -39,11 +41,24 @@ model LinkType {
 }
 
 model ProjectImage {
-  id                          Int             @id @default(autoincrement())
-  imageUrl                    String          @unique
-  primaryImagesPortfolioItems PortfolioItem[] @relation("PrimaryImageId")
-  homeImagesPortfolioItems    PortfolioItem[] @relation("HomeImageId")
-  PortfolioItem               PortfolioItem[]
+  id                          Int                  @id @default(autoincrement())
+  imageUrl                    String               @unique
+  primaryImagesPortfolioItems PortfolioItem[]      @relation("PrimaryImageId")
+  homeImagesPortfolioItems    PortfolioItem[]      @relation("HomeImageId")
+  portfolioItems              PortfolioItemImage[]
+}
+
+/// A project image's place in one portfolio item's gallery. An explicit join, rather than
+/// an implicit many-to-many, so that each item keeps its own image order.
+model PortfolioItemImage {
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+  portfolioItemId Int
+  projectImage    ProjectImage  @relation(fields: [projectImageId], references: [id], onDelete: Cascade)
+  projectImageId  Int
+  position        Int
+
+  @@id([portfolioItemId, projectImageId])
+  @@index([projectImageId])
 }
 
 model Category {
@@ -75,6 +90,6 @@ model MarketObservation {
   date     DateTime
   value    Float
 
-  @@unique([ seriesId, date ])
-  @@index([ seriesId, date ])
+  @@unique([seriesId, date])
+  @@index([seriesId, date])
 }

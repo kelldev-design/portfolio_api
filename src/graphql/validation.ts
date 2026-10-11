@@ -60,6 +60,11 @@ export const validatePortfolioItemInput = (input: CreatePortfolioItemInput): str
     if (!isAbsoluteUrl(imageUrl)) return `${field} must be a valid absolute URL, received "${imageUrl}"`
   }
 
+  // Each image holds one position in an item's gallery, so it can appear there only once.
+  if (new Set(input.projectImages).size !== input.projectImages.length) {
+    return 'projectImages must not contain the same url twice'
+  }
+
   const links: [string, PortfolioLinkInput][] = [
     ...input.githubLinks.map((link): [string, PortfolioLinkInput] => ([ 'githubLinks', link ])),
     ...input.productLinks.map((link): [string, PortfolioLinkInput] => ([ 'productLinks', link ]))

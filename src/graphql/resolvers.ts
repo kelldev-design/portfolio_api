@@ -3,24 +3,8 @@ import { Prisma } from '@prisma/client'
 import { CreatePortfolioItemInput, PortfolioLinkInput, Resolvers } from '../types/generatedTypes'
 import { getMarketSeries, getYieldCurve } from '../services/marketData'
 import { checkAdminPassword, getAdminCredentials, requireAdmin, signAdminToken } from './auth'
+import { portfolioItemInclude, portfolioItemOrderBy } from './portfolioItems'
 import { trimPortfolioItemInput, validatePortfolioItemInput } from './validation'
-
-const portfolioItemInclude = {
-  products: true,
-  links: {
-    select: {
-      id: true,
-      url: true,
-      label: true,
-      type: true,
-      isInternal: true
-    }
-  },
-  projectImages: true,
-  primaryImage: true,
-  homeImage: true,
-  categories: true
-}
 
 const connectOrCreateLinks = (links: PortfolioLinkInput[], typeName: LinkTypes) =>
   links.map(({ isInternal, label, url }) => ({
@@ -41,6 +25,7 @@ const connectOrCreateLinks = (links: PortfolioLinkInput[], typeName: LinkTypes) 
 /**
  * The relations every portfolio item write sets from its input, apart from links. Each
  * category, product and image is connected when it already exists and created otherwise.
+ * Gallery images are stored with their index in the input as their position.
  */
 const portfolioItemRelations = (input: CreatePortfolioItemInput) => ({
   categories: {
@@ -68,9 +53,14 @@ const portfolioItemRelations = (input: CreatePortfolioItemInput) => ({
     }))
   },
   projectImages: {
-    connectOrCreate: input.projectImages.map(imageUrl => ({
-      where: { imageUrl },
-      create: { imageUrl }
+    create: input.projectImages.map((imageUrl, position) => ({
+      position,
+      projectImage: {
+        connectOrCreate: {
+          where: { imageUrl },
+          create: { imageUrl }
+        }
+      }
     }))
   }
 })
@@ -129,7 +119,10 @@ const resolvers: Resolvers = {
     categories: (_parent, _args, context) => context.prisma.category.findMany(),
     projectImages: (_parent, _args, context) => context.prisma.projectImage.findMany(),
     products: (_parent, _args, context) => context.prisma.product.findMany(),
-    portfolioItems: (_parent, _args, context) => context.prisma.portfolioItem.findMany({ include: portfolioItemInclude }),
+    portfolioItems: (_parent, _args, context) => context.prisma.portfolioItem.findMany({
+      include: portfolioItemInclude,
+      orderBy: portfolioItemOrderBy
+    }),
     marketSeries: (_parent, args, context) => getMarketSeries(context.prisma, args),
     yieldCurve: (_parent, args, context) => getYieldCurve(context.prisma, args.date)
   },
@@ -182,9 +175,13 @@ const resolvers: Resolvers = {
         }
       }
 
+      // New items go last on the site.
+      const { _max: { sortOrder: lastSortOrder } } = await context.prisma.portfolioItem.aggregate({ _max: { sortOrder: true } })
+
       return context.prisma.portfolioItem.create({
         data: {
           ...portfolioItemRelations(input),
+          sortOrder: (lastSortOrder ?? -1) + 1,
           description: input.description,
           name: input.name,
           projectId: input.projectId,
@@ -257,13 +254,14 @@ const resolvers: Resolvers = {
       return context.prisma.$transaction(async tx => {
         const links = await upsertLinks(tx, input)
 
+        await tx.portfolioItemImage.deleteMany({ where: { portfolioItemId: args.id } })
+
         await tx.portfolioItem.update({
           where: { id: args.id },
           data: {
             categories: { set: [] },
             links: { set: [] },
-            products: { set: [] },
-            projectImages: { set: [] }
+            products: { set: [] }
           }
         })
 
@@ -290,9 +288,48 @@ const resolvers: Resolvers = {
           success: false,
           message: error.message ?? 'Error'
         }))
+    },
+    reorderPortfolioItems: async (_parent, args, context) => {
+      requireAdmin(context)
+
+      const items = await context.prisma.portfolioItem.findMany({ select: { id: true } })
+      const known = new Set(items.map(({ id }) => id))
+      const given = new Set(args.ids)
+
+      // A partial or stale list would leave the omitted items' positions undefined, so
+      // the whole order is required: every current item, once.
+      if (given.size !== args.ids.length || given.size !== known.size || args.ids.some(id => !known.has(id))) {
+        return {
+          code: 400,
+          success: false,
+          message: 'ids must list every portfolio item exactly once'
+        }
+      }
+
+      return context.prisma.$transaction(args.ids.map((id, sortOrder) => context.prisma.portfolioItem.update({
+        where: { id },
+        data: { sortOrder },
+        select: { id: true }
+      })))
+        .then(() => context.prisma.portfolioItem.findMany({
+          include: portfolioItemInclude,
+          orderBy: portfolioItemOrderBy
+        }))
+        .then(portfolioItems => ({
+          code: 200,
+          success: true,
+          message: 'Success',
+          portfolioItems
+        }))
+        .catch(error => ({
+          code: 500,
+          success: false,
+          message: error.message ?? 'Error'
+        }))
     }
   },
   PortfolioItem: {
+    projectImages: parent => parent.projectImages.map(({ projectImage }) => projectImage),
     githubLinks: parent => parent?.links?.filter(link => link?.type?.name === LinkTypes.Github) ?? [],
     productLinks: parent => parent?.links?.filter(link => link?.type?.name === LinkTypes.Product) ?? []
   },

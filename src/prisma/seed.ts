@@ -43,6 +43,7 @@ async function main() {
         },
         projectId,
         description,
+        sortOrder: i,
         products: {
           connectOrCreate: products.map(product => ({
             where: { name: product },
@@ -50,9 +51,14 @@ async function main() {
           }))
         },
         projectImages: {
-          connectOrCreate: images.map(imageUrl => ({
-            where: { imageUrl },
-            create: { imageUrl }
+          create: images.map((imageUrl, position) => ({
+            position,
+            projectImage: {
+              connectOrCreate: {
+                where: { imageUrl },
+                create: { imageUrl }
+              }
+            }
           }))
         },
         links: {

@@ -33,6 +33,7 @@ type PortfolioItem {
   links: [Link!]!
   homeImage: ProjectImage!
   id: Int!
+  """In gallery order, as given in the input's `projectImages`."""
   projectImages: [ProjectImage!]!
   name: String!
   primaryImage: ProjectImage!
@@ -53,6 +54,13 @@ type UpdatePortfolioItemResponse {
   success: Boolean!
   message: String!
   portfolioItem: PortfolioItem
+}
+
+type ReorderPortfolioItemsResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  portfolioItems: [PortfolioItem!]
 }
 
 type AuthResponse {
@@ -139,4 +147,6 @@ type Mutation {
   createPortfolioItem(input: CreatePortfolioItemInput!): CreatePortfolioItemResponse!
   """Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`."""
   updatePortfolioItem(id: Int!, input: CreatePortfolioItemInput!): UpdatePortfolioItemResponse!
+  """Sets the site order. `ids` must list every portfolio item exactly once, first to last."""
+  reorderPortfolioItems(ids: [Int!]!): ReorderPortfolioItemsResponse!
 }

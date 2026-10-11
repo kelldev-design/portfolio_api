@@ -1,11 +1,13 @@
 import { GraphQLResolveInfo } from 'graphql';
 import { MarketSeriesResult } from '../services/marketData';
+import { PortfolioItemResult } from '../graphql/portfolioItems';
 import { Context } from '../graphql/context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
@@ -94,6 +96,8 @@ export type Mutation = {
   __typename?: 'Mutation';
   createPortfolioItem: CreatePortfolioItemResponse;
   login: AuthResponse;
+  /** Sets the site order. `ids` must list every portfolio item exactly once, first to last. */
+  reorderPortfolioItems: ReorderPortfolioItemsResponse;
   /** Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`. */
   updatePortfolioItem: UpdatePortfolioItemResponse;
 };
@@ -107,6 +111,11 @@ export type MutationCreatePortfolioItemArgs = {
 export type MutationLoginArgs = {
   password: Scalars['String'];
   username: Scalars['String'];
+};
+
+
+export type MutationReorderPortfolioItemsArgs = {
+  ids: Array<Scalars['Int']>;
 };
 
 
@@ -128,6 +137,7 @@ export type PortfolioItem = {
   productLinks?: Maybe<Array<Link>>;
   products: Array<Product>;
   projectId: Scalars['String'];
+  /** In gallery order, as given in the input's `projectImages`. */
   projectImages: Array<ProjectImage>;
 };
 
@@ -172,6 +182,14 @@ export type QueryMarketSeriesArgs = {
 
 export type QueryYieldCurveArgs = {
   date?: InputMaybe<Scalars['String']>;
+};
+
+export type ReorderPortfolioItemsResponse = {
+  __typename?: 'ReorderPortfolioItemsResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  portfolioItems?: Maybe<Array<PortfolioItem>>;
+  success: Scalars['Boolean'];
 };
 
 export type UpdatePortfolioItemResponse = {
@@ -279,7 +297,7 @@ export type ResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Category: ResolverTypeWrapper<Category>;
   CreatePortfolioItemInput: CreatePortfolioItemInput;
-  CreatePortfolioItemResponse: ResolverTypeWrapper<CreatePortfolioItemResponse>;
+  CreatePortfolioItemResponse: ResolverTypeWrapper<Omit<CreatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversTypes['PortfolioItem']> }>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   Link: ResolverTypeWrapper<Link>;
@@ -287,13 +305,14 @@ export type ResolversTypes = ResolversObject<{
   MarketObservation: ResolverTypeWrapper<MarketObservation>;
   MarketSeries: ResolverTypeWrapper<MarketSeriesResult>;
   Mutation: ResolverTypeWrapper<{}>;
-  PortfolioItem: ResolverTypeWrapper<PortfolioItem>;
+  PortfolioItem: ResolverTypeWrapper<PortfolioItemResult>;
   PortfolioLinkInput: PortfolioLinkInput;
   Product: ResolverTypeWrapper<Product>;
   ProjectImage: ResolverTypeWrapper<ProjectImage>;
   Query: ResolverTypeWrapper<{}>;
+  ReorderPortfolioItemsResponse: ResolverTypeWrapper<Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversTypes['PortfolioItem']>> }>;
   String: ResolverTypeWrapper<Scalars['String']>;
-  UpdatePortfolioItemResponse: ResolverTypeWrapper<UpdatePortfolioItemResponse>;
+  UpdatePortfolioItemResponse: ResolverTypeWrapper<Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversTypes['PortfolioItem']> }>;
   YieldCurve: ResolverTypeWrapper<YieldCurve>;
   YieldCurveComparison: ResolverTypeWrapper<YieldCurveComparison>;
   YieldCurvePoint: ResolverTypeWrapper<YieldCurvePoint>;
@@ -305,7 +324,7 @@ export type ResolversParentTypes = ResolversObject<{
   Boolean: Scalars['Boolean'];
   Category: Category;
   CreatePortfolioItemInput: CreatePortfolioItemInput;
-  CreatePortfolioItemResponse: CreatePortfolioItemResponse;
+  CreatePortfolioItemResponse: Omit<CreatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversParentTypes['PortfolioItem']> };
   Float: Scalars['Float'];
   Int: Scalars['Int'];
   Link: Link;
@@ -313,13 +332,14 @@ export type ResolversParentTypes = ResolversObject<{
   MarketObservation: MarketObservation;
   MarketSeries: MarketSeriesResult;
   Mutation: {};
-  PortfolioItem: PortfolioItem;
+  PortfolioItem: PortfolioItemResult;
   PortfolioLinkInput: PortfolioLinkInput;
   Product: Product;
   ProjectImage: ProjectImage;
   Query: {};
+  ReorderPortfolioItemsResponse: Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversParentTypes['PortfolioItem']>> };
   String: Scalars['String'];
-  UpdatePortfolioItemResponse: UpdatePortfolioItemResponse;
+  UpdatePortfolioItemResponse: Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversParentTypes['PortfolioItem']> };
   YieldCurve: YieldCurve;
   YieldCurveComparison: YieldCurveComparison;
   YieldCurvePoint: YieldCurvePoint;
@@ -383,6 +403,7 @@ export type MarketSeriesResolvers<ContextType = Context, ParentType extends Reso
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   createPortfolioItem?: Resolver<ResolversTypes['CreatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'input'>>;
   login?: Resolver<ResolversTypes['AuthResponse'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
+  reorderPortfolioItems?: Resolver<ResolversTypes['ReorderPortfolioItemsResponse'], ParentType, ContextType, RequireFields<MutationReorderPortfolioItemsArgs, 'ids'>>;
   updatePortfolioItem?: Resolver<ResolversTypes['UpdatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationUpdatePortfolioItemArgs, 'id' | 'input'>>;
 }>;
 
@@ -423,6 +444,14 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
   products?: Resolver<Array<ResolversTypes['Product']>, ParentType, ContextType>;
   projectImages?: Resolver<Array<ResolversTypes['ProjectImage']>, ParentType, ContextType>;
   yieldCurve?: Resolver<ResolversTypes['YieldCurve'], ParentType, ContextType, Partial<QueryYieldCurveArgs>>;
+}>;
+
+export type ReorderPortfolioItemsResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ReorderPortfolioItemsResponse'] = ResolversParentTypes['ReorderPortfolioItemsResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  portfolioItems?: Resolver<Maybe<Array<ResolversTypes['PortfolioItem']>>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type UpdatePortfolioItemResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['UpdatePortfolioItemResponse'] = ResolversParentTypes['UpdatePortfolioItemResponse']> = ResolversObject<{
@@ -469,6 +498,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Product?: ProductResolvers<ContextType>;
   ProjectImage?: ProjectImageResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  ReorderPortfolioItemsResponse?: ReorderPortfolioItemsResponseResolvers<ContextType>;
   UpdatePortfolioItemResponse?: UpdatePortfolioItemResponseResolvers<ContextType>;
   YieldCurve?: YieldCurveResolvers<ContextType>;
   YieldCurveComparison?: YieldCurveComparisonResolvers<ContextType>;
