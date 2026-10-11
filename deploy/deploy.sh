@@ -52,6 +52,35 @@ if [ "${FIRST_BOOT}" -eq 0 ]; then
 fi
 
 ###############################################################################
+# .env, re-read from Secrets Manager on every deploy so that changing the
+# secret and redeploying is all a rotation takes. bootstrap.sh writes it once at
+# first boot; before this, nothing ever rewrote it, so a changed secret never
+# reached the running app. The instance role grants GetSecretValue on this one
+# secret. A failed fetch keeps the existing .env rather than failing the deploy,
+# but says so loudly, because the app is then running on the old values.
+###############################################################################
+APP_SECRET_ID=${APP_SECRET_ID:-portfolio-api/env}
+if [ -z "${AWS_REGION:-}" ]; then
+  imds_token=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' || true)
+  AWS_REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: ${imds_token}" \
+    http://169.254.169.254/latest/meta-data/placement/region || true)
+fi
+
+tmp_env=$(mktemp "${APP_DIR}/.env.XXXXXX")
+chmod 600 "${tmp_env}"
+if aws secretsmanager get-secret-value --region "${AWS_REGION}" --secret-id "${APP_SECRET_ID}" \
+     --query SecretString --output text > "${tmp_env}" && [ -s "${tmp_env}" ]; then
+  echo "DATABASE_URL=\"file:${DATA_DIR}/prod.db\"" >> "${tmp_env}"
+  echo 'NODE_ENV="production"' >> "${tmp_env}"
+  mv "${tmp_env}" .env
+  echo ".env refreshed from ${APP_SECRET_ID}"
+else
+  rm -f "${tmp_env}"
+  echo "WARNING: could not read ${APP_SECRET_ID}; keeping the existing .env" >&2
+fi
+
+###############################################################################
 # Dependencies. With a prebuilt bundle the 16 devDependencies — webpack,
 # ts-loader, typescript, the codegen toolchain — are dead weight on this box,
 # and skipping them is most of what makes a CI-built deploy quick. The Prisma

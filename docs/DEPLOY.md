@@ -101,29 +101,23 @@ curl -sS https://api.kelldev.design/ -H 'content-type: application/json' \
 
 ## Environment
 
-Production `.env` is written at boot from the `portfolio-api/env` secret in Secrets
-Manager, plus `DATABASE_URL` and `NODE_ENV` appended by `bootstrap.sh`. To change a value,
-`aws secretsmanager put-secret-value` then redeploy. Required keys are in
-[.env.example](../.env.example); `FRED_API_KEY` is mandatory — the market rates layer in
-[src/services/fred.ts](../src/services/fred.ts) fails at runtime without it.
+Production `.env` is built from the `portfolio-api/env` secret in Secrets Manager, plus
+`DATABASE_URL` and `NODE_ENV` appended after it. `bootstrap.sh` writes it at first boot, and
+`deploy.sh` rewrites it on **every deploy**, so changing a value is
+`aws secretsmanager put-secret-value` and then a deploy (`gh workflow run deploy.yml`, or a
+push to `main`). A restart alone is not enough, because the app reads `.env` only at startup
+and nothing else rewrites it. If the deploy cannot read the secret, it keeps the existing
+`.env` and prints a warning in the SSM output rather than failing.
+
+Required keys are in [.env.example](../.env.example); `FRED_API_KEY` is mandatory — the
+market rates layer in [src/services/fred.ts](../src/services/fred.ts) fails at runtime
+without it.
 
 ## Admin credentials
 
-The `login` mutation issues a 12-hour JWT that every mutation except `login` requires as
-`Authorization: Bearer <token>`. Queries stay public. Three keys drive it, and they live in
-the same `portfolio-api/env` secret as everything else:
-
-- `ADMIN_USERNAME` — the admin login name.
-- `ADMIN_PASSWORD_HASH` — a bcrypt hash of the password. The plaintext is never stored
-  anywhere; generate the hash with
-  `node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 10))" 'the-password'`.
-- `JWT_SECRET` — signs and verifies the tokens. Any long random string, e.g.
-  `openssl rand -base64 48`.
-
-If any of the three is missing or empty, login always fails and the server logs a warning at
-startup — there is no default credential. Rotating the password or the secret means
-`aws secretsmanager put-secret-value` then a redeploy; rotating `JWT_SECRET` also invalidates
-every token already issued, which just means logging in again.
+`ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` and `JWT_SECRET` live in the same secret. Set or
+change them with `deploy/set-admin-credentials.sh` and then deploy. How login works, and how
+to set it up locally, is in [AUTH.md](./AUTH.md).
 
 ## Market data refresh
 

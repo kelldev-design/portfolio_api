@@ -21,7 +21,7 @@ Replaces the hand-built `t2.micro` (`i-0e1e29099d92822ef`) that ran production f
 | shell | SSH with a `.pem` | SSM Session Manager, no open port |
 | port 80 | open to `0.0.0.0/0` | CloudFront origin-facing prefix list only |
 | deploy | SSH in and run commands | push to `main` → Actions → SSM |
-| secrets | hand-edited `.env` | Secrets Manager, fetched at boot |
+| secrets | hand-edited `.env` | Secrets Manager, fetched at boot and on every deploy |
 
 ## Prerequisites (manual — not in Terraform)
 
