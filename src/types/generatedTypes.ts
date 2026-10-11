@@ -94,6 +94,8 @@ export type Mutation = {
   __typename?: 'Mutation';
   createPortfolioItem: CreatePortfolioItemResponse;
   login: AuthResponse;
+  /** Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`. */
+  updatePortfolioItem: UpdatePortfolioItemResponse;
 };
 
 
@@ -105,6 +107,12 @@ export type MutationCreatePortfolioItemArgs = {
 export type MutationLoginArgs = {
   password: Scalars['String'];
   username: Scalars['String'];
+};
+
+
+export type MutationUpdatePortfolioItemArgs = {
+  id: Scalars['Int'];
+  input: CreatePortfolioItemInput;
 };
 
 export type PortfolioItem = {
@@ -164,6 +172,14 @@ export type QueryMarketSeriesArgs = {
 
 export type QueryYieldCurveArgs = {
   date?: InputMaybe<Scalars['String']>;
+};
+
+export type UpdatePortfolioItemResponse = {
+  __typename?: 'UpdatePortfolioItemResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  portfolioItem?: Maybe<PortfolioItem>;
+  success: Scalars['Boolean'];
 };
 
 export type YieldCurve = {
@@ -277,6 +293,7 @@ export type ResolversTypes = ResolversObject<{
   ProjectImage: ResolverTypeWrapper<ProjectImage>;
   Query: ResolverTypeWrapper<{}>;
   String: ResolverTypeWrapper<Scalars['String']>;
+  UpdatePortfolioItemResponse: ResolverTypeWrapper<UpdatePortfolioItemResponse>;
   YieldCurve: ResolverTypeWrapper<YieldCurve>;
   YieldCurveComparison: ResolverTypeWrapper<YieldCurveComparison>;
   YieldCurvePoint: ResolverTypeWrapper<YieldCurvePoint>;
@@ -302,6 +319,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProjectImage: ProjectImage;
   Query: {};
   String: Scalars['String'];
+  UpdatePortfolioItemResponse: UpdatePortfolioItemResponse;
   YieldCurve: YieldCurve;
   YieldCurveComparison: YieldCurveComparison;
   YieldCurvePoint: YieldCurvePoint;
@@ -365,6 +383,7 @@ export type MarketSeriesResolvers<ContextType = Context, ParentType extends Reso
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   createPortfolioItem?: Resolver<ResolversTypes['CreatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'input'>>;
   login?: Resolver<ResolversTypes['AuthResponse'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
+  updatePortfolioItem?: Resolver<ResolversTypes['UpdatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationUpdatePortfolioItemArgs, 'id' | 'input'>>;
 }>;
 
 export type PortfolioItemResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PortfolioItem'] = ResolversParentTypes['PortfolioItem']> = ResolversObject<{
@@ -406,6 +425,14 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
   yieldCurve?: Resolver<ResolversTypes['YieldCurve'], ParentType, ContextType, Partial<QueryYieldCurveArgs>>;
 }>;
 
+export type UpdatePortfolioItemResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['UpdatePortfolioItemResponse'] = ResolversParentTypes['UpdatePortfolioItemResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  portfolioItem?: Resolver<Maybe<ResolversTypes['PortfolioItem']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type YieldCurveResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurve'] = ResolversParentTypes['YieldCurve']> = ResolversObject<{
   comparisons?: Resolver<Array<ResolversTypes['YieldCurveComparison']>, ParentType, ContextType>;
   date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -442,6 +469,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Product?: ProductResolvers<ContextType>;
   ProjectImage?: ProjectImageResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  UpdatePortfolioItemResponse?: UpdatePortfolioItemResponseResolvers<ContextType>;
   YieldCurve?: YieldCurveResolvers<ContextType>;
   YieldCurveComparison?: YieldCurveComparisonResolvers<ContextType>;
   YieldCurvePoint?: YieldCurvePointResolvers<ContextType>;

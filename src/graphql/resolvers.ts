@@ -1,5 +1,6 @@
 import { LinkTypes } from '../types/types'
-import { PortfolioLinkInput, Resolvers } from '../types/generatedTypes'
+import { Prisma } from '@prisma/client'
+import { CreatePortfolioItemInput, PortfolioLinkInput, Resolvers } from '../types/generatedTypes'
 import { getMarketSeries, getYieldCurve } from '../services/marketData'
 import { checkAdminPassword, getAdminCredentials, requireAdmin, signAdminToken } from './auth'
 import { trimPortfolioItemInput, validatePortfolioItemInput } from './validation'
@@ -36,6 +37,90 @@ const connectOrCreateLinks = (links: PortfolioLinkInput[], typeName: LinkTypes) 
       url
     }
   }))
+
+/**
+ * The relations every portfolio item write sets from its input, apart from links. Each
+ * category, product and image is connected when it already exists and created otherwise.
+ */
+const portfolioItemRelations = (input: CreatePortfolioItemInput) => ({
+  categories: {
+    connectOrCreate: input.categories.map(name => ({
+      where: { name },
+      create: { name }
+    }))
+  },
+  homeImage: {
+    connectOrCreate: {
+      where: { imageUrl: input.homeImage },
+      create: { imageUrl: input.homeImage }
+    }
+  },
+  primaryImage: {
+    connectOrCreate: {
+      where: { imageUrl: input.primaryImage },
+      create: { imageUrl: input.primaryImage }
+    }
+  },
+  products: {
+    connectOrCreate: input.products.map(name => ({
+      where: { name },
+      create: { name }
+    }))
+  },
+  projectImages: {
+    connectOrCreate: input.projectImages.map(imageUrl => ({
+      where: { imageUrl },
+      create: { imageUrl }
+    }))
+  }
+})
+
+/**
+ * Upserts each link by url and returns their ids. Unlike connectOrCreate, an upsert also
+ * applies a changed label or isInternal to a link that already exists, which is what an
+ * edit needs.
+ */
+const upsertLinks = async (prisma: Prisma.TransactionClient, input: CreatePortfolioItemInput) => {
+  const links = [
+    ...input.githubLinks.map(link => ({
+      ...link,
+      typeName: LinkTypes.Github
+    })),
+    ...input.productLinks.map(link => ({
+      ...link,
+      typeName: LinkTypes.Product
+    }))
+  ]
+  const ids: { id: number }[] = []
+
+  for (const { isInternal, label, url, typeName } of links) {
+    const type = {
+      connectOrCreate: {
+        where: { name: typeName },
+        create: { name: typeName }
+      }
+    }
+    const link = await prisma.link.upsert({
+      where: { url },
+      update: {
+        isInternal,
+        label,
+        type
+      },
+      create: {
+        isInternal,
+        label,
+        url,
+        type
+      },
+      select: { id: true }
+    })
+
+    ids.push(link)
+  }
+
+  return ids
+}
 
 const resolvers: Resolvers = {
   Query: {
@@ -99,39 +184,10 @@ const resolvers: Resolvers = {
 
       return context.prisma.portfolioItem.create({
         data: {
-          categories: {
-            connectOrCreate: input.categories.map(name => ({
-              where: { name },
-              create: { name }
-            }))
-          },
+          ...portfolioItemRelations(input),
           description: input.description,
           name: input.name,
-          homeImage: {
-            connectOrCreate: {
-              where: { imageUrl: input.homeImage },
-              create: { imageUrl: input.homeImage }
-            }
-          },
-          primaryImage: {
-            connectOrCreate: {
-              where: { imageUrl: input.primaryImage },
-              create: { imageUrl: input.primaryImage }
-            }
-          },
           projectId: input.projectId,
-          products: {
-            connectOrCreate: input.products.map(name => ({
-              where: { name },
-              create: { name }
-            }))
-          },
-          projectImages: {
-            connectOrCreate: input.projectImages.map(imageUrl => ({
-              where: { imageUrl },
-              create: { imageUrl }
-            }))
-          },
           links: {
             connectOrCreate: [
               ...connectOrCreateLinks(input.githubLinks, LinkTypes.Github),
@@ -140,6 +196,88 @@ const resolvers: Resolvers = {
           }
         },
         include: portfolioItemInclude
+      })
+        .then(res => ({
+          code: 200,
+          success: true,
+          message: 'Success',
+          portfolioItem: res
+        }))
+        .catch(error => ({
+          code: 500,
+          success: false,
+          message: error.message ?? 'Error'
+        }))
+    },
+    updatePortfolioItem: async (_parent, args, context) => {
+      requireAdmin(context)
+
+      const input = trimPortfolioItemInput(args.input)
+      const validationError = validatePortfolioItemInput(input)
+
+      if (validationError) {
+        return {
+          code: 400,
+          success: false,
+          message: validationError
+        }
+      }
+
+      const current = await context.prisma.portfolioItem.findUnique({ where: { id: args.id } })
+
+      if (!current) {
+        return {
+          code: 404,
+          success: false,
+          message: `No portfolio item with id ${args.id}`
+        }
+      }
+
+      const existing = await context.prisma.portfolioItem.findFirst({
+        where: {
+          id: { not: args.id },
+          OR: [{ projectId: input.projectId }, { name: input.name }]
+        }
+      })
+
+      if (existing) {
+        const conflict = existing.projectId === input.projectId
+          ? `projectId "${input.projectId}"`
+          : `name "${input.name}"`
+
+        return {
+          code: 409,
+          success: false,
+          message: `Another portfolio item with ${conflict} already exists`
+        }
+      }
+
+      // Clearing the to-many relations and reconnecting them in one transaction makes the
+      // input the item's complete new state, so anything left out of it is removed.
+      return context.prisma.$transaction(async tx => {
+        const links = await upsertLinks(tx, input)
+
+        await tx.portfolioItem.update({
+          where: { id: args.id },
+          data: {
+            categories: { set: [] },
+            links: { set: [] },
+            products: { set: [] },
+            projectImages: { set: [] }
+          }
+        })
+
+        return tx.portfolioItem.update({
+          where: { id: args.id },
+          data: {
+            ...portfolioItemRelations(input),
+            description: input.description,
+            name: input.name,
+            projectId: input.projectId,
+            links: { connect: links }
+          },
+          include: portfolioItemInclude
+        })
       })
         .then(res => ({
           code: 200,

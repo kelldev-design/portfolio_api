@@ -48,6 +48,13 @@ type CreatePortfolioItemResponse {
   portfolioItem: PortfolioItem
 }
 
+type UpdatePortfolioItemResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  portfolioItem: PortfolioItem
+}
+
 type AuthResponse {
   code: Int!
   success: Boolean!
@@ -130,4 +137,6 @@ type Query {
 type Mutation {
   login(username: String!, password: String!): AuthResponse!
   createPortfolioItem(input: CreatePortfolioItemInput!): CreatePortfolioItemResponse!
+  """Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`."""
+  updatePortfolioItem(id: Int!, input: CreatePortfolioItemInput!): UpdatePortfolioItemResponse!
 }
