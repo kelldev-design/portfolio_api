@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import { Context } from './context'
 
 export const TOKEN_EXPIRY = '12h'
+export const TOKEN_ALGORITHM = 'HS256'
 
 // A bcrypt hash of a value no one knows, used so a login attempt with an unknown
 // username still pays the cost of a bcrypt compare and cannot be told apart by timing.
@@ -59,7 +60,7 @@ export const verifyAdminToken = (token: string): boolean => {
   if (!jwtSecret) return false
 
   try {
-    const payload = jwt.verify(token, jwtSecret)
+    const payload = jwt.verify(token, jwtSecret, { algorithms: [ TOKEN_ALGORITHM ] })
     return typeof payload === 'object' && payload !== null && payload.role === 'admin'
   } catch {
     return false
@@ -82,7 +83,10 @@ export const signAdminToken = (username: string, jwtSecret: string): string => j
     role: 'admin'
   },
   jwtSecret,
-  { expiresIn: TOKEN_EXPIRY }
+  {
+    algorithm: TOKEN_ALGORITHM,
+    expiresIn: TOKEN_EXPIRY
+  }
 )
 
 export const checkAdminPassword = async (username: string, password: string): Promise<boolean> => {
