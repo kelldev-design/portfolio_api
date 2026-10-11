@@ -16,10 +16,31 @@ export type Scalars = {
   Float: number;
 };
 
+export type AuthResponse = {
+  __typename?: 'AuthResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  success: Scalars['Boolean'];
+  token?: Maybe<Scalars['String']>;
+};
+
 export type Category = {
   __typename?: 'Category';
   id: Scalars['Int'];
   name: Scalars['String'];
+};
+
+export type CreatePortfolioItemInput = {
+  categories: Array<Scalars['String']>;
+  description: Scalars['String'];
+  githubLinks: Array<PortfolioLinkInput>;
+  homeImage: Scalars['String'];
+  name: Scalars['String'];
+  primaryImage: Scalars['String'];
+  productLinks: Array<PortfolioLinkInput>;
+  products: Array<Scalars['String']>;
+  projectId: Scalars['String'];
+  projectImages: Array<Scalars['String']>;
 };
 
 export type CreatePortfolioItemResponse = {
@@ -71,20 +92,19 @@ export type MarketSeries = {
 
 export type Mutation = {
   __typename?: 'Mutation';
-  createPortfolioItem?: Maybe<CreatePortfolioItemResponse>;
+  createPortfolioItem: CreatePortfolioItemResponse;
+  login: AuthResponse;
 };
 
 
 export type MutationCreatePortfolioItemArgs = {
-  categories: Array<Scalars['Int']>;
-  description: Scalars['String'];
-  homeImage: Scalars['Int'];
-  links: Array<Scalars['Int']>;
-  name: Scalars['String'];
-  primaryImage: Scalars['Int'];
-  products: Array<Scalars['Int']>;
-  projectId: Scalars['String'];
-  projectImages: Array<Scalars['Int']>;
+  input: CreatePortfolioItemInput;
+};
+
+
+export type MutationLoginArgs = {
+  password: Scalars['String'];
+  username: Scalars['String'];
 };
 
 export type PortfolioItem = {
@@ -101,6 +121,12 @@ export type PortfolioItem = {
   products: Array<Product>;
   projectId: Scalars['String'];
   projectImages: Array<ProjectImage>;
+};
+
+export type PortfolioLinkInput = {
+  isInternal: Scalars['Boolean'];
+  label: Scalars['String'];
+  url: Scalars['String'];
 };
 
 export type Product = {
@@ -233,8 +259,10 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AuthResponse: ResolverTypeWrapper<AuthResponse>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Category: ResolverTypeWrapper<Category>;
+  CreatePortfolioItemInput: CreatePortfolioItemInput;
   CreatePortfolioItemResponse: ResolverTypeWrapper<CreatePortfolioItemResponse>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
@@ -244,6 +272,7 @@ export type ResolversTypes = ResolversObject<{
   MarketSeries: ResolverTypeWrapper<MarketSeriesResult>;
   Mutation: ResolverTypeWrapper<{}>;
   PortfolioItem: ResolverTypeWrapper<PortfolioItem>;
+  PortfolioLinkInput: PortfolioLinkInput;
   Product: ResolverTypeWrapper<Product>;
   ProjectImage: ResolverTypeWrapper<ProjectImage>;
   Query: ResolverTypeWrapper<{}>;
@@ -255,8 +284,10 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AuthResponse: AuthResponse;
   Boolean: Scalars['Boolean'];
   Category: Category;
+  CreatePortfolioItemInput: CreatePortfolioItemInput;
   CreatePortfolioItemResponse: CreatePortfolioItemResponse;
   Float: Scalars['Float'];
   Int: Scalars['Int'];
@@ -266,6 +297,7 @@ export type ResolversParentTypes = ResolversObject<{
   MarketSeries: MarketSeriesResult;
   Mutation: {};
   PortfolioItem: PortfolioItem;
+  PortfolioLinkInput: PortfolioLinkInput;
   Product: Product;
   ProjectImage: ProjectImage;
   Query: {};
@@ -273,6 +305,14 @@ export type ResolversParentTypes = ResolversObject<{
   YieldCurve: YieldCurve;
   YieldCurveComparison: YieldCurveComparison;
   YieldCurvePoint: YieldCurvePoint;
+}>;
+
+export type AuthResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['AuthResponse'] = ResolversParentTypes['AuthResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  token?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type CategoryResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Category'] = ResolversParentTypes['Category']> = ResolversObject<{
@@ -323,7 +363,8 @@ export type MarketSeriesResolvers<ContextType = Context, ParentType extends Reso
 }>;
 
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
-  createPortfolioItem?: Resolver<Maybe<ResolversTypes['CreatePortfolioItemResponse']>, ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'categories' | 'description' | 'homeImage' | 'links' | 'name' | 'primaryImage' | 'products' | 'projectId' | 'projectImages'>>;
+  createPortfolioItem?: Resolver<ResolversTypes['CreatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'input'>>;
+  login?: Resolver<ResolversTypes['AuthResponse'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
 }>;
 
 export type PortfolioItemResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PortfolioItem'] = ResolversParentTypes['PortfolioItem']> = ResolversObject<{
@@ -389,6 +430,7 @@ export type YieldCurvePointResolvers<ContextType = Context, ParentType extends R
 }>;
 
 export type Resolvers<ContextType = Context> = ResolversObject<{
+  AuthResponse?: AuthResponseResolvers<ContextType>;
   Category?: CategoryResolvers<ContextType>;
   CreatePortfolioItemResponse?: CreatePortfolioItemResponseResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;

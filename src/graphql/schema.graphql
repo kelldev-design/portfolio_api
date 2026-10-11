@@ -48,6 +48,32 @@ type CreatePortfolioItemResponse {
   portfolioItem: PortfolioItem
 }
 
+type AuthResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  token: String
+}
+
+input PortfolioLinkInput {
+  label: String!
+  url: String!
+  isInternal: Boolean!
+}
+
+input CreatePortfolioItemInput {
+  name: String!
+  projectId: String!
+  description: String!
+  categories: [String!]!
+  products: [String!]!
+  homeImage: String!
+  primaryImage: String!
+  projectImages: [String!]!
+  githubLinks: [PortfolioLinkInput!]!
+  productLinks: [PortfolioLinkInput!]!
+}
+
 type MarketObservation {
   date: String!
   value: Float!
@@ -102,15 +128,6 @@ type Query {
 }
 
 type Mutation {
-  createPortfolioItem(
-    categories: [Int!]!
-    description: String!
-    links: [Int!]!
-    homeImage: Int!
-    projectImages: [Int!]!
-    name: String!
-    primaryImage: Int!
-    products: [Int!]!
-    projectId: String!
-  ): CreatePortfolioItemResponse
+  login(username: String!, password: String!): AuthResponse!
+  createPortfolioItem(input: CreatePortfolioItemInput!): CreatePortfolioItemResponse!
 }

@@ -107,6 +107,24 @@ Manager, plus `DATABASE_URL` and `NODE_ENV` appended by `bootstrap.sh`. To chang
 [.env.example](../.env.example); `FRED_API_KEY` is mandatory — the market rates layer in
 [src/services/fred.ts](../src/services/fred.ts) fails at runtime without it.
 
+## Admin credentials
+
+The `login` mutation issues a 12-hour JWT that every mutation except `login` requires as
+`Authorization: Bearer <token>`. Queries stay public. Three keys drive it, and they live in
+the same `portfolio-api/env` secret as everything else:
+
+- `ADMIN_USERNAME` — the admin login name.
+- `ADMIN_PASSWORD_HASH` — a bcrypt hash of the password. The plaintext is never stored
+  anywhere; generate the hash with
+  `node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 10))" 'the-password'`.
+- `JWT_SECRET` — signs and verifies the tokens. Any long random string, e.g.
+  `openssl rand -base64 48`.
+
+If any of the three is missing or empty, login always fails and the server logs a warning at
+startup — there is no default credential. Rotating the password or the secret means
+`aws secretsmanager put-secret-value` then a redeploy; rotating `JWT_SECRET` also invalidates
+every token already issued, which just means logging in again.
+
 ## Market data refresh
 
 [refreshStaleSeries](../src/services/fred.ts) refetches a series only when it is stale, and
