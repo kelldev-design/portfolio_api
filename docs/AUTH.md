@@ -1,7 +1,8 @@
 # Admin authentication
 
-There is one admin account, used by the admin UI at `kelldev.design/admin`. Queries are
-public. Every mutation except `login` needs an admin token.
+There is one admin account, used by the admin UI at `kelldev.design/admin` and the room
+planner at `kelldev.design/room-planner`. Queries are public except `roomPlan`. Every
+mutation except `login` needs an admin token.
 
 ## How it works
 

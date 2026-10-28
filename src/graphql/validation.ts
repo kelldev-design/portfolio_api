@@ -96,3 +96,27 @@ export const validatePortfolioItemInput = (input: CreatePortfolioItemInput): str
 
   return null
 }
+
+/** Larger than any real plan by far, so only a mistake or abuse reaches it. */
+const ROOM_PLAN_MAX_LENGTH = 1_000_000
+
+/** Returns a message describing why `data` is not a room plan, or null when it is one. */
+export const validateRoomPlanData = (data: string): string | null => {
+  if (data.length > ROOM_PLAN_MAX_LENGTH) return `data must be at most ${ROOM_PLAN_MAX_LENGTH} characters`
+
+  let plan: unknown
+
+  try {
+    plan = JSON.parse(data)
+  } catch {
+    return 'data must be valid JSON'
+  }
+
+  if (typeof plan !== 'object' || plan === null || Array.isArray(plan)) return 'data must be a JSON object'
+
+  const { furniture, rooms } = plan as Record<string, unknown>
+
+  if (!Array.isArray(furniture) || !Array.isArray(rooms)) return 'data must have furniture and rooms arrays'
+
+  return null
+}

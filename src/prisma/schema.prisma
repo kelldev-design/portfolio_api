@@ -93,3 +93,12 @@ model MarketObservation {
   @@unique([seriesId, date])
   @@index([seriesId, date])
 }
+
+/// A room planner plan, saved whole as the JSON the site's room planner works with. The
+/// planner owns its shape; the API only checks it is a plan before storing it.
+model RoomPlan {
+  /// One plan per key. The planner uses "default".
+  key       String   @id
+  data      String
+  updatedAt DateTime @updatedAt
+}

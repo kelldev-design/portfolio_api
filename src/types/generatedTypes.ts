@@ -98,6 +98,8 @@ export type Mutation = {
   login: AuthResponse;
   /** Sets the site order. `ids` must list every portfolio item exactly once, first to last. */
   reorderPortfolioItems: ReorderPortfolioItemsResponse;
+  /** Replaces the saved room plan. `data` must be a JSON object with `furniture` and `rooms` arrays. */
+  saveRoomPlan: SaveRoomPlanResponse;
   /** Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`. */
   updatePortfolioItem: UpdatePortfolioItemResponse;
 };
@@ -116,6 +118,11 @@ export type MutationLoginArgs = {
 
 export type MutationReorderPortfolioItemsArgs = {
   ids: Array<Scalars['Int']>;
+};
+
+
+export type MutationSaveRoomPlanArgs = {
+  data: Scalars['String'];
 };
 
 
@@ -168,6 +175,8 @@ export type Query = {
   portfolioItems: Array<PortfolioItem>;
   products: Array<Product>;
   projectImages: Array<ProjectImage>;
+  /** The saved room plan, or null before one is saved. Admin only. */
+  roomPlan?: Maybe<RoomPlan>;
   yieldCurve: YieldCurve;
 };
 
@@ -189,6 +198,21 @@ export type ReorderPortfolioItemsResponse = {
   code: Scalars['Int'];
   message: Scalars['String'];
   portfolioItems?: Maybe<Array<PortfolioItem>>;
+  success: Scalars['Boolean'];
+};
+
+/** A room planner plan. `data` is the plan as JSON text. */
+export type RoomPlan = {
+  __typename?: 'RoomPlan';
+  data: Scalars['String'];
+  updatedAt: Scalars['String'];
+};
+
+export type SaveRoomPlanResponse = {
+  __typename?: 'SaveRoomPlanResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  roomPlan?: Maybe<RoomPlan>;
   success: Scalars['Boolean'];
 };
 
@@ -311,6 +335,8 @@ export type ResolversTypes = ResolversObject<{
   ProjectImage: ResolverTypeWrapper<ProjectImage>;
   Query: ResolverTypeWrapper<{}>;
   ReorderPortfolioItemsResponse: ResolverTypeWrapper<Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversTypes['PortfolioItem']>> }>;
+  RoomPlan: ResolverTypeWrapper<RoomPlan>;
+  SaveRoomPlanResponse: ResolverTypeWrapper<SaveRoomPlanResponse>;
   String: ResolverTypeWrapper<Scalars['String']>;
   UpdatePortfolioItemResponse: ResolverTypeWrapper<Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversTypes['PortfolioItem']> }>;
   YieldCurve: ResolverTypeWrapper<YieldCurve>;
@@ -338,6 +364,8 @@ export type ResolversParentTypes = ResolversObject<{
   ProjectImage: ProjectImage;
   Query: {};
   ReorderPortfolioItemsResponse: Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversParentTypes['PortfolioItem']>> };
+  RoomPlan: RoomPlan;
+  SaveRoomPlanResponse: SaveRoomPlanResponse;
   String: Scalars['String'];
   UpdatePortfolioItemResponse: Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversParentTypes['PortfolioItem']> };
   YieldCurve: YieldCurve;
@@ -404,6 +432,7 @@ export type MutationResolvers<ContextType = Context, ParentType extends Resolver
   createPortfolioItem?: Resolver<ResolversTypes['CreatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'input'>>;
   login?: Resolver<ResolversTypes['AuthResponse'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
   reorderPortfolioItems?: Resolver<ResolversTypes['ReorderPortfolioItemsResponse'], ParentType, ContextType, RequireFields<MutationReorderPortfolioItemsArgs, 'ids'>>;
+  saveRoomPlan?: Resolver<ResolversTypes['SaveRoomPlanResponse'], ParentType, ContextType, RequireFields<MutationSaveRoomPlanArgs, 'data'>>;
   updatePortfolioItem?: Resolver<ResolversTypes['UpdatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationUpdatePortfolioItemArgs, 'id' | 'input'>>;
 }>;
 
@@ -443,6 +472,7 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
   portfolioItems?: Resolver<Array<ResolversTypes['PortfolioItem']>, ParentType, ContextType>;
   products?: Resolver<Array<ResolversTypes['Product']>, ParentType, ContextType>;
   projectImages?: Resolver<Array<ResolversTypes['ProjectImage']>, ParentType, ContextType>;
+  roomPlan?: Resolver<Maybe<ResolversTypes['RoomPlan']>, ParentType, ContextType>;
   yieldCurve?: Resolver<ResolversTypes['YieldCurve'], ParentType, ContextType, Partial<QueryYieldCurveArgs>>;
 }>;
 
@@ -450,6 +480,20 @@ export type ReorderPortfolioItemsResponseResolvers<ContextType = Context, Parent
   code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   portfolioItems?: Resolver<Maybe<Array<ResolversTypes['PortfolioItem']>>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RoomPlanResolvers<ContextType = Context, ParentType extends ResolversParentTypes['RoomPlan'] = ResolversParentTypes['RoomPlan']> = ResolversObject<{
+  data?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SaveRoomPlanResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['SaveRoomPlanResponse'] = ResolversParentTypes['SaveRoomPlanResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  roomPlan?: Resolver<Maybe<ResolversTypes['RoomPlan']>, ParentType, ContextType>;
   success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -499,6 +543,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   ProjectImage?: ProjectImageResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   ReorderPortfolioItemsResponse?: ReorderPortfolioItemsResponseResolvers<ContextType>;
+  RoomPlan?: RoomPlanResolvers<ContextType>;
+  SaveRoomPlanResponse?: SaveRoomPlanResponseResolvers<ContextType>;
   UpdatePortfolioItemResponse?: UpdatePortfolioItemResponseResolvers<ContextType>;
   YieldCurve?: YieldCurveResolvers<ContextType>;
   YieldCurveComparison?: YieldCurveComparisonResolvers<ContextType>;

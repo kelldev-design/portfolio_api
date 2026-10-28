@@ -4,7 +4,7 @@ import { CreatePortfolioItemInput, PortfolioLinkInput, Resolvers } from '../type
 import { getMarketSeries, getYieldCurve } from '../services/marketData'
 import { checkAdminPassword, getAdminCredentials, requireAdmin, signAdminToken } from './auth'
 import { portfolioItemInclude, portfolioItemOrderBy } from './portfolioItems'
-import { trimPortfolioItemInput, validatePortfolioItemInput } from './validation'
+import { trimPortfolioItemInput, validatePortfolioItemInput, validateRoomPlanData } from './validation'
 
 const connectOrCreateLinks = (links: PortfolioLinkInput[], typeName: LinkTypes) =>
   links.map(({ isInternal, label, url }) => ({
@@ -112,6 +112,14 @@ const upsertLinks = async (prisma: Prisma.TransactionClient, input: CreatePortfo
   return ids
 }
 
+/** The planner keeps a single plan, under this key. */
+const ROOM_PLAN_KEY = 'default'
+
+const toRoomPlan = ({ data, updatedAt }: { data: string; updatedAt: Date }) => ({
+  data,
+  updatedAt: updatedAt.toISOString()
+})
+
 const resolvers: Resolvers = {
   Query: {
     links: (_parent, _args, context) => context.prisma.link.findMany({ include: { type: true } }),
@@ -124,7 +132,14 @@ const resolvers: Resolvers = {
       orderBy: portfolioItemOrderBy
     }),
     marketSeries: (_parent, args, context) => getMarketSeries(context.prisma, args),
-    yieldCurve: (_parent, args, context) => getYieldCurve(context.prisma, args.date)
+    yieldCurve: (_parent, args, context) => getYieldCurve(context.prisma, args.date),
+    roomPlan: async (_parent, _args, context) => {
+      requireAdmin(context)
+
+      const roomPlan = await context.prisma.roomPlan.findUnique({ where: { key: ROOM_PLAN_KEY } })
+
+      return roomPlan && toRoomPlan(roomPlan)
+    }
   },
   Mutation: {
     login: async (_parent, args) => {
@@ -320,6 +335,39 @@ const resolvers: Resolvers = {
           success: true,
           message: 'Success',
           portfolioItems
+        }))
+        .catch(error => ({
+          code: 500,
+          success: false,
+          message: error.message ?? 'Error'
+        }))
+    },
+    saveRoomPlan: async (_parent, args, context) => {
+      requireAdmin(context)
+
+      const validationError = validateRoomPlanData(args.data)
+
+      if (validationError) {
+        return {
+          code: 400,
+          success: false,
+          message: validationError
+        }
+      }
+
+      return context.prisma.roomPlan.upsert({
+        where: { key: ROOM_PLAN_KEY },
+        update: { data: args.data },
+        create: {
+          key: ROOM_PLAN_KEY,
+          data: args.data
+        }
+      })
+        .then(res => ({
+          code: 200,
+          success: true,
+          message: 'Success',
+          roomPlan: toRoomPlan(res)
         }))
         .catch(error => ({
           code: 500,

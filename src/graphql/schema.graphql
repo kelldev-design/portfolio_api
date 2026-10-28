@@ -63,6 +63,19 @@ type ReorderPortfolioItemsResponse {
   portfolioItems: [PortfolioItem!]
 }
 
+"""A room planner plan. `data` is the plan as JSON text."""
+type RoomPlan {
+  data: String!
+  updatedAt: String!
+}
+
+type SaveRoomPlanResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  roomPlan: RoomPlan
+}
+
 type AuthResponse {
   code: Int!
   success: Boolean!
@@ -140,6 +153,8 @@ type Query {
   portfolioItems: [PortfolioItem!]!
   marketSeries(ids: [String!], category: String, from: String, to: String): [MarketSeries!]!
   yieldCurve(date: String): YieldCurve!
+  """The saved room plan, or null before one is saved. Admin only."""
+  roomPlan: RoomPlan
 }
 
 type Mutation {
@@ -149,4 +164,6 @@ type Mutation {
   updatePortfolioItem(id: Int!, input: CreatePortfolioItemInput!): UpdatePortfolioItemResponse!
   """Sets the site order. `ids` must list every portfolio item exactly once, first to last."""
   reorderPortfolioItems(ids: [Int!]!): ReorderPortfolioItemsResponse!
+  """Replaces the saved room plan. `data` must be a JSON object with `furniture` and `rooms` arrays."""
+  saveRoomPlan(data: String!): SaveRoomPlanResponse!
 }
