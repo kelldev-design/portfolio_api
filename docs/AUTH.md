@@ -10,13 +10,14 @@ Three environment variables define the account:
 
 | Key | What it is |
 |---|---|
-| `ADMIN_USERNAME` | The login name. |
+| `ADMIN_USERNAME` | The login name. Matched case-insensitively, ignoring leading/trailing whitespace. |
 | `ADMIN_PASSWORD_HASH` | A bcrypt hash of the password. The plaintext is never stored anywhere. |
 | `JWT_SECRET` | Signs and verifies tokens. A long random string. |
 
 1. The client sends `login(username, password)`.
-2. [src/graphql/auth.ts](../src/graphql/auth.ts) compares the username in constant time and
-   the password against the bcrypt hash. It runs the bcrypt compare even when the username
+2. [src/graphql/auth.ts](../src/graphql/auth.ts) compares the username in constant time
+   (case-insensitive, ignoring surrounding whitespace) and the password against the bcrypt
+   hash (case-sensitive). It runs the bcrypt compare even when the username
    is wrong, so response time doesn't reveal whether a username exists.
 3. On success it returns a JWT (HS256, `role: "admin"`) that lasts **12 hours**.
 4. The client sends that token as `Authorization: Bearer <token>`.

@@ -55,6 +55,9 @@ export const safeEqual = (a: string, b: string): boolean => timingSafeEqual(
   createHash('sha256').update(b).digest()
 )
 
+/** Usernames are matched case-insensitively and ignoring surrounding whitespace. */
+const normalizeUsername = (username: string): string => username.trim().toLowerCase()
+
 export const verifyAdminToken = (token: string): boolean => {
   const jwtSecret = process.env.JWT_SECRET
   if (!jwtSecret) return false
@@ -93,7 +96,10 @@ export const checkAdminPassword = async (username: string, password: string): Pr
   const credentials = getAdminCredentials()
   // Always run the bcrypt compare, even without credentials or with an unknown username,
   // so the endpoint does not reveal which usernames exist through its response time.
-  const usernameMatches = !!credentials && safeEqual(username, credentials.username)
+  const usernameMatches = !!credentials && safeEqual(
+    normalizeUsername(username),
+    normalizeUsername(credentials.username)
+  )
   const passwordMatches = await bcrypt.compare(password, credentials?.passwordHash ?? DUMMY_HASH)
 
   return usernameMatches && passwordMatches
