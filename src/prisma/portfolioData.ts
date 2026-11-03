@@ -375,6 +375,7 @@ const portfolioItemArray: SeedPortfolioItemType[] = [
     githubLinks: [],
     productLinks: [],
     projectId: 'clarimatch',
+    year: 2026,
     products: [ 'Brand', 'Mobile App', 'Website' ],
     homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
     primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
@@ -387,12 +388,13 @@ const portfolioItemArray: SeedPortfolioItemType[] = [
     id: 170,
     githubLinks: [],
     productLinks: [],
-    projectId: 'kelldevagent',
-    products: [ 'Side Project' ],
-    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/tr:w-720,ar-1-1/kelldevagent_PLACEHOLDER.jpg',
-    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/tr:w-720,ar-1-1/kelldevagent_PLACEHOLDER.jpg',
+    projectId: 'kelldev-agent',
+    year: 2026,
+    products: [ 'AI Product' ],
+    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/kelldev_agent_screen_Pq868RKrdJ.jpg',
+    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/kelldev_agent_web_mock_0o7DPdFxp.jpg',
     images: [],
-    description: 'Kelldev Agent is a Dockerized command line tool that uses Claude Code to work across multiple git repositories. Work is described in natural language, Claude plans it interactively against the real codebase, and then executes it headlessly, creating branches, making changes, and opening pull requests. It is written in TypeScript on Node.js using ESM, with SQLite accessed through Drizzle ORM for projects, tasks, executions, and todos. A background worker polls for queued tasks and runs them one at a time per project, and a static React, Vite, and Tailwind dashboard reports project, task, execution, and system log state.'
+    description: 'Kelldev Agent is the AI development system behind kelldev.ai and the rest of these projects: a Dockerized TypeScript CLI that drives Claude Code across dozens of git repositories. Work is described in plain language. An interactive planning session explores the codebase and writes tasks. A background worker then runs each task on its own branch with no one watching, runs the repo\'s documented test, lint and typecheck commands, and opens a pull request. Five minutes later, a separate review pass posts inline comments and a third pass addresses them. Each stage runs on its own model and reasoning level, and new codebases are scaffolded end to end: GitHub repo, pinned toolchain, tests, CI and agent docs. A portal poller turns kelldev.ai customer briefs into demos. It screens each brief with a structured model call that returns a verdict and a spec, creates a repo from the demo template, sets up the repo\'s GitHub environment and secrets, and queues a task that runs only after a person approves it. It also takes demos down on schedule through a GitHub Actions workflow. State lives in SQLite through Drizzle ORM, and a Next.js dashboard streams live task, execution, pull request and cost updates over server-sent events. It runs on a single EC2 instance defined in Terraform, with a persistent EBS volume, Secrets Manager and S3 backups. It has no public inbound ports and is reachable only over Tailscale. The instance stops itself after 30 idle minutes and is started again by a GitHub Action, or by the kelldev.ai portal when a brief arrives.'
   }]
 
 export default portfolioItemArray
