@@ -16,6 +16,8 @@ model PortfolioItem {
   name           String               @unique
   /// Position on the site, lowest first. Set by reorderPortfolioItems.
   sortOrder      Int                  @default(0)
+  /// The year the work was done, shown with the project. Null when unknown.
+  year           Int?
   projectImages  PortfolioItemImage[]
   categories     Category[]
   links          Link[]
