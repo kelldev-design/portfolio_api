@@ -200,6 +200,7 @@ const resolvers: Resolvers = {
           description: input.description,
           name: input.name,
           projectId: input.projectId,
+          year: input.year,
           links: {
             connectOrCreate: [
               ...connectOrCreateLinks(input.githubLinks, LinkTypes.Github),
@@ -287,6 +288,7 @@ const resolvers: Resolvers = {
             description: input.description,
             name: input.name,
             projectId: input.projectId,
+            year: input.year,
             links: { connect: links }
           },
           include: portfolioItemInclude

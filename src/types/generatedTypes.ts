@@ -43,6 +43,8 @@ export type CreatePortfolioItemInput = {
   products: Array<Scalars['String']>;
   projectId: Scalars['String'];
   projectImages: Array<Scalars['String']>;
+  /** The year the work was done. Omitted or null clears it. */
+  year?: InputMaybe<Scalars['Int']>;
 };
 
 export type CreatePortfolioItemResponse = {
@@ -146,6 +148,8 @@ export type PortfolioItem = {
   projectId: Scalars['String'];
   /** In gallery order, as given in the input's `projectImages`. */
   projectImages: Array<ProjectImage>;
+  /** The year the work was done, or null when it isn't recorded. */
+  year?: Maybe<Scalars['Int']>;
 };
 
 export type PortfolioLinkInput = {
@@ -449,6 +453,7 @@ export type PortfolioItemResolvers<ContextType = Context, ParentType extends Res
   products?: Resolver<Array<ResolversTypes['Product']>, ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectImages?: Resolver<Array<ResolversTypes['ProjectImage']>, ParentType, ContextType>;
+  year?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

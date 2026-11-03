@@ -3,6 +3,9 @@ import { CreatePortfolioItemInput, PortfolioLinkInput } from '../types/generated
 /** `projectId` is used as a URL path segment at `/project/:projectId`. */
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9-]+$/
 
+/** Earlier than any portfolio work, so a typo like 216 is caught. */
+const FIRST_YEAR = 2000
+
 const isAbsoluteUrl = (value: string): boolean => {
   try {
     const { protocol } = new URL(value)
@@ -29,7 +32,8 @@ export const trimPortfolioItemInput = (input: CreatePortfolioItemInput): CreateP
   primaryImage: input.primaryImage.trim(),
   projectImages: input.projectImages.map(imageUrl => imageUrl.trim()),
   githubLinks: trimLinks(input.githubLinks),
-  productLinks: trimLinks(input.productLinks)
+  productLinks: trimLinks(input.productLinks),
+  year: input.year ?? null
 })
 
 /** Returns a message describing the first problem with the input, or null when it is valid. */
@@ -44,6 +48,14 @@ export const validatePortfolioItemInput = (input: CreatePortfolioItemInput): str
 
   for (const [ field, value ] of required) {
     if (!value) return `${field} is required`
+  }
+
+  if (input.year != null) {
+    const latestYear = new Date().getFullYear() + 1
+
+    if (!Number.isInteger(input.year) || input.year < FIRST_YEAR || input.year > latestYear) {
+      return `year must be a whole year from ${FIRST_YEAR} to ${latestYear}, received ${input.year}`
+    }
   }
 
   if (!PROJECT_ID_PATTERN.test(input.projectId)) {

@@ -40,6 +40,8 @@ type PortfolioItem {
   productLinks: [Link!]
   products: [Product!]!
   projectId: String!
+  """The year the work was done, or null when it isn't recorded."""
+  year: Int
 }
 
 type CreatePortfolioItemResponse {
@@ -100,6 +102,8 @@ input CreatePortfolioItemInput {
   projectImages: [String!]!
   githubLinks: [PortfolioLinkInput!]!
   productLinks: [PortfolioLinkInput!]!
+  """The year the work was done. Omitted or null clears it."""
+  year: Int
 }
 
 type MarketObservation {
