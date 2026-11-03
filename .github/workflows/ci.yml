@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20 # matches the pinned Node 20 LTS in production
+          cache: npm
+
+      - run: npm ci
+
+      # `@prisma/client` types are generated from src/prisma/schema.prisma, so
+      # lint and build have nothing to typecheck against until this runs, and
+      # npm ci does not reliably fire the postinstall that would do it.
+      # This is `prisma generate` ONLY: it reads the schema and writes the
+      # client, it never connects to a database. It is not the `prisma:*`
+      # scripts, which are `prisma migrate dev` — interactive, development-only,
+      # and offer to reset the database. Never call those from CI.
+      - run: npx prisma generate
+
+      - run: npm run lint
+
+      - run: npm run build

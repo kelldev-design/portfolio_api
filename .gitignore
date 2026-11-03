@@ -3,3 +3,8 @@ node_modules
 dist
 src/prisma/dev.db
 src/prisma/dev.db-journal
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+.terraform.lock.hcl

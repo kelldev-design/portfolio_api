@@ -1,0 +1,183 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC: assume the deploy role, no stored AWS keys
+  contents: write # publish the built bundle as a release asset
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Inert until the Terraform module has actually been applied and the two
+    # repo variables are set from its outputs. Without this the job fails on
+    # every push, because there is no role to assume and no instance to target.
+    # Setting the variables activates it — no workflow change needed.
+    if: vars.AWS_DEPLOY_ROLE_ARN != '' && vars.AWS_INSTANCE_ID != ''
+    steps:
+      # The bundle is built here rather than on the instance. A t4g.nano running
+      # `npm ci` across all 26 dependencies and then webpack has been measured at
+      # 26m21s once its CPU credits run dry; the same work on a runner takes
+      # 30-120s. Building here also means the instance never installs the 16
+      # devDependencies at all — see `npm ci --omit=dev` in deploy/deploy.sh.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The Prisma client is generated from the schema, so ts-loader has nothing
+      # to typecheck the app against until this runs.
+      - run: npx prisma generate
+
+      - run: npm run build
+
+      # webpack-node-externals keeps every dependency out of the bundle, so
+      # dist/index.js is ~33KB of plain JavaScript containing no native code.
+      # That makes it architecture-independent: an x64 runner can build what an
+      # arm64 instance runs. The platform-specific part is the Prisma engine,
+      # which the instance still generates for itself.
+      - name: Publish the bundle as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          tag="build-${GITHUB_SHA}"
+
+          # Tagged by commit rather than rolling: the instance fetches the bundle
+          # built from precisely the commit it checked out, so a re-run of an
+          # older commit can never pick up a newer bundle.
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "Build ${GITHUB_SHA::7}" \
+              --notes "Server bundle published by the deploy workflow. Not a user-facing release." \
+              --prerelease
+          fi
+
+          gh release upload "$tag" dist/index.js --clobber
+
+      # Keep the release list readable. These are deploy artifacts, not history:
+      # the last few are worth having to roll back by hand, the rest are noise.
+      - name: Prune old build releases
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))]
+                  | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' \
+            | while read -r old; do
+                echo "removing $old"
+                gh release delete "$old" --cleanup-tag --yes
+              done
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # The instance installs runtime dependencies, migrates and restarts; it no
+      # longer builds. CI triggers it and reports the result. The role's only
+      # permission is SendCommand against this box.
+      - name: Run deploy on the instance
+        run: |
+          set -euo pipefail
+
+          POLL_INTERVAL_SECONDS=15
+          POLL_TIMEOUT_MINUTES=45
+          POLL_ATTEMPTS=$(( POLL_TIMEOUT_MINUTES * 60 / POLL_INTERVAL_SECONDS ))
+
+          # Public repo, so the instance needs no credentials to fetch this.
+          bundle_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/build-${GITHUB_SHA}/index.js"
+
+          # /usr/local/bin/portfolio-api-deploy is a COPY that bootstrap.sh took at first
+          # boot, and nothing had ever refreshed it. A change to deploy/deploy.sh reached
+          # the checkout and was then ignored, because the copy is what actually runs --
+          # which is why the first CI-built deploy silently built on the box anyway.
+          #
+          # So the checkout is updated and the copy reinstalled here, before the script is
+          # invoked. SSM runs this as root, which is what makes the install possible; the
+          # git commands drop to ec2-user because the checkout is theirs. deploy.sh fetches
+          # and resets again itself, which is idempotent and left alone so that a hand
+          # deploy still works on its own.
+          cat > /tmp/ssm-params.json <<JSON
+          {
+            "commands": [
+              "set -euo pipefail",
+              "cd /home/ec2-user/portfolio_api",
+              "sudo -u ec2-user git fetch --prune origin",
+              "sudo -u ec2-user git reset --hard origin/main",
+              "install -m 0755 deploy/deploy.sh /usr/local/bin/portfolio-api-deploy",
+              "sudo -u ec2-user -H env BUNDLE_URL='${bundle_url}' /usr/local/bin/portfolio-api-deploy"
+            ]
+          }
+          JSON
+
+          command_id=$(aws ssm send-command \
+            --document-name AWS-RunShellScript \
+            --targets "Key=instanceids,Values=${{ vars.AWS_INSTANCE_ID }}" \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --timeout-seconds 900 \
+            --parameters file:///tmp/ssm-params.json \
+            --query Command.CommandId --output text)
+
+          echo "SSM command: $command_id"
+
+          # send-command returns as soon as SSM accepts the request, so something
+          # has to wait if the deploy's outcome is to be reported at all. The
+          # built-in `aws ssm wait command-executed` gives up after ~100s and the
+          # CLI exposes no way to retune it, hence polling by hand.
+          #
+          # Now that the build happens on the runner the instance should finish in
+          # a couple of minutes, but the window stays generous on purpose: giving
+          # up early is worse than waiting, because it reports a deploy that went
+          # on to succeed as a failure. That is what sent the 2026-09-12 run red
+          # at 18 minutes while the instance finished fine at 26m21s.
+          status=Pending
+          for _ in $(seq 1 $POLL_ATTEMPTS); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
+              --query Status --output text)
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep "$POLL_INTERVAL_SECONDS"
+          done
+
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
+            --query StandardOutputContent --output text | tail -30
+
+          # A deploy still running when the poll window closes has not failed, and
+          # must not be described as though it had: the instance may well go on to
+          # finish. Say what actually happened, and where to look for the outcome.
+          case "$status" in
+            Pending|InProgress|Delayed)
+              echo "::error::Gave up waiting after ${POLL_TIMEOUT_MINUTES} minutes; the deploy is still $status and may yet succeed on the instance. Check it with: aws ssm get-command-invocation --command-id $command_id --instance-id ${{ vars.AWS_INSTANCE_ID }}"
+              exit 1
+              ;;
+          esac
+
+          if [ "$status" != "Success" ]; then
+            echo "::error::deploy finished with status $status"
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "${{ vars.AWS_INSTANCE_ID }}" \
+              --query StandardErrorContent --output text | tail -40
+            exit 1
+          fi

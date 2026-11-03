@@ -15,7 +15,8 @@ async function main() {
       primaryImage,
       productLinks,
       products,
-      projectId
+      projectId,
+      year
     } = portfolioItemArray[i]
 
     await prisma.portfolioItem.upsert({
@@ -43,6 +44,8 @@ async function main() {
         },
         projectId,
         description,
+        year,
+        sortOrder: i,
         products: {
           connectOrCreate: products.map(product => ({
             where: { name: product },
@@ -50,9 +53,14 @@ async function main() {
           }))
         },
         projectImages: {
-          connectOrCreate: images.map(imageUrl => ({
-            where: { imageUrl },
-            create: { imageUrl }
+          create: images.map((imageUrl, position) => ({
+            position,
+            projectImage: {
+              connectOrCreate: {
+                where: { imageUrl },
+                create: { imageUrl }
+              }
+            }
           }))
         },
         links: {

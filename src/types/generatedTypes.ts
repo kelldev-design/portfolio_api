@@ -1,10 +1,13 @@
 import { GraphQLResolveInfo } from 'graphql';
+import { MarketSeriesResult } from '../services/marketData';
+import { PortfolioItemResult } from '../graphql/portfolioItems';
 import { Context } from '../graphql/context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
@@ -15,10 +18,33 @@ export type Scalars = {
   Float: number;
 };
 
+export type AuthResponse = {
+  __typename?: 'AuthResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  success: Scalars['Boolean'];
+  token?: Maybe<Scalars['String']>;
+};
+
 export type Category = {
   __typename?: 'Category';
   id: Scalars['Int'];
   name: Scalars['String'];
+};
+
+export type CreatePortfolioItemInput = {
+  categories: Array<Scalars['String']>;
+  description: Scalars['String'];
+  githubLinks: Array<PortfolioLinkInput>;
+  homeImage: Scalars['String'];
+  name: Scalars['String'];
+  primaryImage: Scalars['String'];
+  productLinks: Array<PortfolioLinkInput>;
+  products: Array<Scalars['String']>;
+  projectId: Scalars['String'];
+  projectImages: Array<Scalars['String']>;
+  /** The year the work was done. Omitted or null clears it. */
+  year?: InputMaybe<Scalars['Int']>;
 };
 
 export type CreatePortfolioItemResponse = {
@@ -44,22 +70,67 @@ export type LinkType = {
   name: Scalars['String'];
 };
 
+export type MarketObservation = {
+  __typename?: 'MarketObservation';
+  date: Scalars['String'];
+  value: Scalars['Float'];
+};
+
+export type MarketSeries = {
+  __typename?: 'MarketSeries';
+  category: Scalars['String'];
+  fredId: Scalars['String'];
+  label: Scalars['String'];
+  lastFetchedAt?: Maybe<Scalars['String']>;
+  /**
+   * The most recent observation for the series overall. Unaffected by `from`/`to`,
+   * so a windowed chart query still reports the current value.
+   */
+  latest?: Maybe<MarketObservation>;
+  /** Observations for the series, narrowed by the `from`/`to` query arguments. */
+  observations: Array<MarketObservation>;
+  /** The observation before `latest`, for computing the change. Unaffected by `from`/`to`. */
+  previous?: Maybe<MarketObservation>;
+  unit: Scalars['String'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
-  createPortfolioItem?: Maybe<CreatePortfolioItemResponse>;
+  createPortfolioItem: CreatePortfolioItemResponse;
+  login: AuthResponse;
+  /** Sets the site order. `ids` must list every portfolio item exactly once, first to last. */
+  reorderPortfolioItems: ReorderPortfolioItemsResponse;
+  /** Replaces the saved room plan. `data` must be a JSON object with `furniture` and `rooms` arrays. */
+  saveRoomPlan: SaveRoomPlanResponse;
+  /** Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`. */
+  updatePortfolioItem: UpdatePortfolioItemResponse;
 };
 
 
 export type MutationCreatePortfolioItemArgs = {
-  categories: Array<Scalars['Int']>;
-  description: Scalars['String'];
-  homeImage: Scalars['Int'];
-  links: Array<Scalars['Int']>;
-  name: Scalars['String'];
-  primaryImage: Scalars['Int'];
-  products: Array<Scalars['Int']>;
-  projectId: Scalars['String'];
-  projectImages: Array<Scalars['Int']>;
+  input: CreatePortfolioItemInput;
+};
+
+
+export type MutationLoginArgs = {
+  password: Scalars['String'];
+  username: Scalars['String'];
+};
+
+
+export type MutationReorderPortfolioItemsArgs = {
+  ids: Array<Scalars['Int']>;
+};
+
+
+export type MutationSaveRoomPlanArgs = {
+  data: Scalars['String'];
+};
+
+
+export type MutationUpdatePortfolioItemArgs = {
+  id: Scalars['Int'];
+  input: CreatePortfolioItemInput;
 };
 
 export type PortfolioItem = {
@@ -75,7 +146,16 @@ export type PortfolioItem = {
   productLinks?: Maybe<Array<Link>>;
   products: Array<Product>;
   projectId: Scalars['String'];
+  /** In gallery order, as given in the input's `projectImages`. */
   projectImages: Array<ProjectImage>;
+  /** The year the work was done, or null when it isn't recorded. */
+  year?: Maybe<Scalars['Int']>;
+};
+
+export type PortfolioLinkInput = {
+  isInternal: Scalars['Boolean'];
+  label: Scalars['String'];
+  url: Scalars['String'];
 };
 
 export type Product = {
@@ -95,9 +175,80 @@ export type Query = {
   categories: Array<Category>;
   linkTypes: Array<LinkType>;
   links: Array<Link>;
+  marketSeries: Array<MarketSeries>;
   portfolioItems: Array<PortfolioItem>;
   products: Array<Product>;
   projectImages: Array<ProjectImage>;
+  /** The saved room plan, or null before one is saved. Admin only. */
+  roomPlan?: Maybe<RoomPlan>;
+  yieldCurve: YieldCurve;
+};
+
+
+export type QueryMarketSeriesArgs = {
+  category?: InputMaybe<Scalars['String']>;
+  from?: InputMaybe<Scalars['String']>;
+  ids?: InputMaybe<Array<Scalars['String']>>;
+  to?: InputMaybe<Scalars['String']>;
+};
+
+
+export type QueryYieldCurveArgs = {
+  date?: InputMaybe<Scalars['String']>;
+};
+
+export type ReorderPortfolioItemsResponse = {
+  __typename?: 'ReorderPortfolioItemsResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  portfolioItems?: Maybe<Array<PortfolioItem>>;
+  success: Scalars['Boolean'];
+};
+
+/** A room planner plan. `data` is the plan as JSON text. */
+export type RoomPlan = {
+  __typename?: 'RoomPlan';
+  data: Scalars['String'];
+  updatedAt: Scalars['String'];
+};
+
+export type SaveRoomPlanResponse = {
+  __typename?: 'SaveRoomPlanResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  roomPlan?: Maybe<RoomPlan>;
+  success: Scalars['Boolean'];
+};
+
+export type UpdatePortfolioItemResponse = {
+  __typename?: 'UpdatePortfolioItemResponse';
+  code: Scalars['Int'];
+  message: Scalars['String'];
+  portfolioItem?: Maybe<PortfolioItem>;
+  success: Scalars['Boolean'];
+};
+
+export type YieldCurve = {
+  __typename?: 'YieldCurve';
+  comparisons: Array<YieldCurveComparison>;
+  date: Scalars['String'];
+  points: Array<YieldCurvePoint>;
+};
+
+export type YieldCurveComparison = {
+  __typename?: 'YieldCurveComparison';
+  date: Scalars['String'];
+  key: Scalars['String'];
+  label: Scalars['String'];
+  points: Array<YieldCurvePoint>;
+};
+
+export type YieldCurvePoint = {
+  __typename?: 'YieldCurvePoint';
+  fredId: Scalars['String'];
+  label: Scalars['String'];
+  months: Scalars['Int'];
+  value?: Maybe<Scalars['Float']>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -170,34 +321,68 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AuthResponse: ResolverTypeWrapper<AuthResponse>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Category: ResolverTypeWrapper<Category>;
-  CreatePortfolioItemResponse: ResolverTypeWrapper<CreatePortfolioItemResponse>;
+  CreatePortfolioItemInput: CreatePortfolioItemInput;
+  CreatePortfolioItemResponse: ResolverTypeWrapper<Omit<CreatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversTypes['PortfolioItem']> }>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   Link: ResolverTypeWrapper<Link>;
   LinkType: ResolverTypeWrapper<LinkType>;
+  MarketObservation: ResolverTypeWrapper<MarketObservation>;
+  MarketSeries: ResolverTypeWrapper<MarketSeriesResult>;
   Mutation: ResolverTypeWrapper<{}>;
-  PortfolioItem: ResolverTypeWrapper<PortfolioItem>;
+  PortfolioItem: ResolverTypeWrapper<PortfolioItemResult>;
+  PortfolioLinkInput: PortfolioLinkInput;
   Product: ResolverTypeWrapper<Product>;
   ProjectImage: ResolverTypeWrapper<ProjectImage>;
   Query: ResolverTypeWrapper<{}>;
+  ReorderPortfolioItemsResponse: ResolverTypeWrapper<Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversTypes['PortfolioItem']>> }>;
+  RoomPlan: ResolverTypeWrapper<RoomPlan>;
+  SaveRoomPlanResponse: ResolverTypeWrapper<SaveRoomPlanResponse>;
   String: ResolverTypeWrapper<Scalars['String']>;
+  UpdatePortfolioItemResponse: ResolverTypeWrapper<Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversTypes['PortfolioItem']> }>;
+  YieldCurve: ResolverTypeWrapper<YieldCurve>;
+  YieldCurveComparison: ResolverTypeWrapper<YieldCurveComparison>;
+  YieldCurvePoint: ResolverTypeWrapper<YieldCurvePoint>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AuthResponse: AuthResponse;
   Boolean: Scalars['Boolean'];
   Category: Category;
-  CreatePortfolioItemResponse: CreatePortfolioItemResponse;
+  CreatePortfolioItemInput: CreatePortfolioItemInput;
+  CreatePortfolioItemResponse: Omit<CreatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversParentTypes['PortfolioItem']> };
+  Float: Scalars['Float'];
   Int: Scalars['Int'];
   Link: Link;
   LinkType: LinkType;
+  MarketObservation: MarketObservation;
+  MarketSeries: MarketSeriesResult;
   Mutation: {};
-  PortfolioItem: PortfolioItem;
+  PortfolioItem: PortfolioItemResult;
+  PortfolioLinkInput: PortfolioLinkInput;
   Product: Product;
   ProjectImage: ProjectImage;
   Query: {};
+  ReorderPortfolioItemsResponse: Omit<ReorderPortfolioItemsResponse, 'portfolioItems'> & { portfolioItems?: Maybe<Array<ResolversParentTypes['PortfolioItem']>> };
+  RoomPlan: RoomPlan;
+  SaveRoomPlanResponse: SaveRoomPlanResponse;
   String: Scalars['String'];
+  UpdatePortfolioItemResponse: Omit<UpdatePortfolioItemResponse, 'portfolioItem'> & { portfolioItem?: Maybe<ResolversParentTypes['PortfolioItem']> };
+  YieldCurve: YieldCurve;
+  YieldCurveComparison: YieldCurveComparison;
+  YieldCurvePoint: YieldCurvePoint;
+}>;
+
+export type AuthResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['AuthResponse'] = ResolversParentTypes['AuthResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  token?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type CategoryResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Category'] = ResolversParentTypes['Category']> = ResolversObject<{
@@ -229,8 +414,30 @@ export type LinkTypeResolvers<ContextType = Context, ParentType extends Resolver
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type MarketObservationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['MarketObservation'] = ResolversParentTypes['MarketObservation']> = ResolversObject<{
+  date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  value?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type MarketSeriesResolvers<ContextType = Context, ParentType extends ResolversParentTypes['MarketSeries'] = ResolversParentTypes['MarketSeries']> = ResolversObject<{
+  category?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  fredId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lastFetchedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  latest?: Resolver<Maybe<ResolversTypes['MarketObservation']>, ParentType, ContextType>;
+  observations?: Resolver<Array<ResolversTypes['MarketObservation']>, ParentType, ContextType>;
+  previous?: Resolver<Maybe<ResolversTypes['MarketObservation']>, ParentType, ContextType>;
+  unit?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
-  createPortfolioItem?: Resolver<Maybe<ResolversTypes['CreatePortfolioItemResponse']>, ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'categories' | 'description' | 'homeImage' | 'links' | 'name' | 'primaryImage' | 'products' | 'projectId' | 'projectImages'>>;
+  createPortfolioItem?: Resolver<ResolversTypes['CreatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationCreatePortfolioItemArgs, 'input'>>;
+  login?: Resolver<ResolversTypes['AuthResponse'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
+  reorderPortfolioItems?: Resolver<ResolversTypes['ReorderPortfolioItemsResponse'], ParentType, ContextType, RequireFields<MutationReorderPortfolioItemsArgs, 'ids'>>;
+  saveRoomPlan?: Resolver<ResolversTypes['SaveRoomPlanResponse'], ParentType, ContextType, RequireFields<MutationSaveRoomPlanArgs, 'data'>>;
+  updatePortfolioItem?: Resolver<ResolversTypes['UpdatePortfolioItemResponse'], ParentType, ContextType, RequireFields<MutationUpdatePortfolioItemArgs, 'id' | 'input'>>;
 }>;
 
 export type PortfolioItemResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PortfolioItem'] = ResolversParentTypes['PortfolioItem']> = ResolversObject<{
@@ -246,6 +453,7 @@ export type PortfolioItemResolvers<ContextType = Context, ParentType extends Res
   products?: Resolver<Array<ResolversTypes['Product']>, ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectImages?: Resolver<Array<ResolversTypes['ProjectImage']>, ParentType, ContextType>;
+  year?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -265,20 +473,86 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
   categories?: Resolver<Array<ResolversTypes['Category']>, ParentType, ContextType>;
   linkTypes?: Resolver<Array<ResolversTypes['LinkType']>, ParentType, ContextType>;
   links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
+  marketSeries?: Resolver<Array<ResolversTypes['MarketSeries']>, ParentType, ContextType, Partial<QueryMarketSeriesArgs>>;
   portfolioItems?: Resolver<Array<ResolversTypes['PortfolioItem']>, ParentType, ContextType>;
   products?: Resolver<Array<ResolversTypes['Product']>, ParentType, ContextType>;
   projectImages?: Resolver<Array<ResolversTypes['ProjectImage']>, ParentType, ContextType>;
+  roomPlan?: Resolver<Maybe<ResolversTypes['RoomPlan']>, ParentType, ContextType>;
+  yieldCurve?: Resolver<ResolversTypes['YieldCurve'], ParentType, ContextType, Partial<QueryYieldCurveArgs>>;
+}>;
+
+export type ReorderPortfolioItemsResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ReorderPortfolioItemsResponse'] = ResolversParentTypes['ReorderPortfolioItemsResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  portfolioItems?: Resolver<Maybe<Array<ResolversTypes['PortfolioItem']>>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RoomPlanResolvers<ContextType = Context, ParentType extends ResolversParentTypes['RoomPlan'] = ResolversParentTypes['RoomPlan']> = ResolversObject<{
+  data?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SaveRoomPlanResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['SaveRoomPlanResponse'] = ResolversParentTypes['SaveRoomPlanResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  roomPlan?: Resolver<Maybe<ResolversTypes['RoomPlan']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type UpdatePortfolioItemResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['UpdatePortfolioItemResponse'] = ResolversParentTypes['UpdatePortfolioItemResponse']> = ResolversObject<{
+  code?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  portfolioItem?: Resolver<Maybe<ResolversTypes['PortfolioItem']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type YieldCurveResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurve'] = ResolversParentTypes['YieldCurve']> = ResolversObject<{
+  comparisons?: Resolver<Array<ResolversTypes['YieldCurveComparison']>, ParentType, ContextType>;
+  date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  points?: Resolver<Array<ResolversTypes['YieldCurvePoint']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type YieldCurveComparisonResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurveComparison'] = ResolversParentTypes['YieldCurveComparison']> = ResolversObject<{
+  date?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  points?: Resolver<Array<ResolversTypes['YieldCurvePoint']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type YieldCurvePointResolvers<ContextType = Context, ParentType extends ResolversParentTypes['YieldCurvePoint'] = ResolversParentTypes['YieldCurvePoint']> = ResolversObject<{
+  fredId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  months?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  value?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type Resolvers<ContextType = Context> = ResolversObject<{
+  AuthResponse?: AuthResponseResolvers<ContextType>;
   Category?: CategoryResolvers<ContextType>;
   CreatePortfolioItemResponse?: CreatePortfolioItemResponseResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
   LinkType?: LinkTypeResolvers<ContextType>;
+  MarketObservation?: MarketObservationResolvers<ContextType>;
+  MarketSeries?: MarketSeriesResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   PortfolioItem?: PortfolioItemResolvers<ContextType>;
   Product?: ProductResolvers<ContextType>;
   ProjectImage?: ProjectImageResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  ReorderPortfolioItemsResponse?: ReorderPortfolioItemsResponseResolvers<ContextType>;
+  RoomPlan?: RoomPlanResolvers<ContextType>;
+  SaveRoomPlanResponse?: SaveRoomPlanResponseResolvers<ContextType>;
+  UpdatePortfolioItemResponse?: UpdatePortfolioItemResponseResolvers<ContextType>;
+  YieldCurve?: YieldCurveResolvers<ContextType>;
+  YieldCurveComparison?: YieldCurveComparisonResolvers<ContextType>;
+  YieldCurvePoint?: YieldCurvePointResolvers<ContextType>;
 }>;
 

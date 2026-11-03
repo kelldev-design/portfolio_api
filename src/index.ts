@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { ApolloServer } from 'apollo-server'
 import executableSchema from './graphql/executableSchema'
 import { context } from './graphql/context'
+import { warnOnMissingAdminCredentials } from './graphql/auth'
 
 const corsOrigins = [ 'https://studio.apollographql.com' ]
 const kelldevDesignUrl: string | undefined = process.env.KELLDEV_CLIENT_URL
@@ -17,6 +18,8 @@ export const server = new ApolloServer({
 })
 
 const port = 4000
+
+warnOnMissingAdminCredentials()
 
 server.listen({ port }).then(({ url }: {url: string}) => {
   console.log(`🚀 Server ready at ${url}`)

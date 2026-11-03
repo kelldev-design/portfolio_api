@@ -33,12 +33,15 @@ type PortfolioItem {
   links: [Link!]!
   homeImage: ProjectImage!
   id: Int!
+  """In gallery order, as given in the input's `projectImages`."""
   projectImages: [ProjectImage!]!
   name: String!
   primaryImage: ProjectImage!
   productLinks: [Link!]
   products: [Product!]!
   projectId: String!
+  """The year the work was done, or null when it isn't recorded."""
+  year: Int
 }
 
 type CreatePortfolioItemResponse {
@@ -48,6 +51,103 @@ type CreatePortfolioItemResponse {
   portfolioItem: PortfolioItem
 }
 
+type UpdatePortfolioItemResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  portfolioItem: PortfolioItem
+}
+
+type ReorderPortfolioItemsResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  portfolioItems: [PortfolioItem!]
+}
+
+"""A room planner plan. `data` is the plan as JSON text."""
+type RoomPlan {
+  data: String!
+  updatedAt: String!
+}
+
+type SaveRoomPlanResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  roomPlan: RoomPlan
+}
+
+type AuthResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  token: String
+}
+
+input PortfolioLinkInput {
+  label: String!
+  url: String!
+  isInternal: Boolean!
+}
+
+input CreatePortfolioItemInput {
+  name: String!
+  projectId: String!
+  description: String!
+  categories: [String!]!
+  products: [String!]!
+  homeImage: String!
+  primaryImage: String!
+  projectImages: [String!]!
+  githubLinks: [PortfolioLinkInput!]!
+  productLinks: [PortfolioLinkInput!]!
+  """The year the work was done. Omitted or null clears it."""
+  year: Int
+}
+
+type MarketObservation {
+  date: String!
+  value: Float!
+}
+
+type MarketSeries {
+  fredId: String!
+  label: String!
+  category: String!
+  unit: String!
+  lastFetchedAt: String
+  """Observations for the series, narrowed by the `from`/`to` query arguments."""
+  observations: [MarketObservation!]!
+  """
+  The most recent observation for the series overall. Unaffected by `from`/`to`,
+  so a windowed chart query still reports the current value.
+  """
+  latest: MarketObservation
+  """The observation before `latest`, for computing the change. Unaffected by `from`/`to`."""
+  previous: MarketObservation
+}
+
+type YieldCurvePoint {
+  fredId: String!
+  label: String!
+  months: Int!
+  value: Float
+}
+
+type YieldCurveComparison {
+  key: String!
+  label: String!
+  date: String!
+  points: [YieldCurvePoint!]!
+}
+
+type YieldCurve {
+  date: String!
+  points: [YieldCurvePoint!]!
+  comparisons: [YieldCurveComparison!]!
+}
+
 type Query {
   links: [Link!]!
   projectImages: [ProjectImage!]!
@@ -55,18 +155,19 @@ type Query {
   products: [Product!]!
   linkTypes: [LinkType!]!
   portfolioItems: [PortfolioItem!]!
+  marketSeries(ids: [String!], category: String, from: String, to: String): [MarketSeries!]!
+  yieldCurve(date: String): YieldCurve!
+  """The saved room plan, or null before one is saved. Admin only."""
+  roomPlan: RoomPlan
 }
 
 type Mutation {
-  createPortfolioItem(
-    categories: [Int!]!
-    description: String!
-    links: [Int!]!
-    homeImage: Int!
-    projectImages: [Int!]!
-    name: String!
-    primaryImage: Int!
-    products: [Int!]!
-    projectId: String!
-  ): CreatePortfolioItemResponse
+  login(username: String!, password: String!): AuthResponse!
+  createPortfolioItem(input: CreatePortfolioItemInput!): CreatePortfolioItemResponse!
+  """Replaces every field of the item with `id`. Takes the same input as `createPortfolioItem`."""
+  updatePortfolioItem(id: Int!, input: CreatePortfolioItemInput!): UpdatePortfolioItemResponse!
+  """Sets the site order. `ids` must list every portfolio item exactly once, first to last."""
+  reorderPortfolioItems(ids: [Int!]!): ReorderPortfolioItemsResponse!
+  """Replaces the saved room plan. `data` must be a JSON object with `furniture` and `rooms` arrays."""
+  saveRoomPlan(data: String!): SaveRoomPlanResponse!
 }
