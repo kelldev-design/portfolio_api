@@ -367,6 +367,34 @@ const portfolioItemArray: SeedPortfolioItemType[] = [
     primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehouseblack_5WIbDqnQ6.png',
     images: [ 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehousesite-square_G5__dLkld.jpg', 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1-1/absinthehousewhite_P7g4Vkk6g.png', 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/absinthe-house/tr:w-720,ar-1200-800/absinthemenumockup_1DnD6-KNl.png' ],
     description: 'Absinthe House is a bar and nightclub in Boulder, Colorado. Adobe Illustrator and Adobe InDesign were used to create the vector banner and menu. The Absinthe House website was designed using Adobe Illustrator and built in Wix.'
+  },
+  {
+    categories: [ 'design', 'development' ],
+    name: 'Clarimatch',
+    id: 169,
+    githubLinks: [],
+    productLinks: [],
+    projectId: 'clarimatch',
+    year: 2026,
+    products: [ 'Brand', 'Mobile App', 'Website' ],
+    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
+    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/clarimatch/tr:w-720,ar-1-1/clarimatch_PLACEHOLDER.jpg',
+    images: [],
+    description: 'Clarimatch is a health-first dating app that removes the stress of how and when to share your health conditions, connecting members with people who are looking for them and share their experience. A user health conditions are never shown publicly and are only visible to people they have matched with. Users can mark a condition as preferred or required, which soft ranks matching profiles higher in the discovery feed rather than filtering anyone out. The product is a pnpm and Turborepo monorepo containing a Next.js web application that also serves as the single backend for both platforms, and a React Native and Expo mobile app for iOS and Android that shares the same logic and data. All profiles, photos, matches, messages, health conditions, and preferences are stored in PostgreSQL and accessed through Prisma. Cloud infrastructure is defined in Terraform on AWS, and a paid subscription tier unlocks additional features.'
+  },
+  {
+    categories: [ 'development' ],
+    name: 'Kelldev Agent',
+    id: 170,
+    githubLinks: [],
+    productLinks: [],
+    projectId: 'kelldev-agent',
+    year: 2026,
+    products: [ 'AI Product' ],
+    homeImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/kelldev_agent_screen_Pq868RKrdJ.jpg',
+    primaryImage: 'https://ik.imagekit.io/l1kppwkihn2/Kelleghan_Design/kelldev-agent/kelldev_agent_web_mock_0o7DPdFxp.jpg',
+    images: [],
+    description: 'Kelldev Agent is the AI development system behind kelldev.ai and the rest of these projects: a Dockerized TypeScript CLI that drives Claude Code across dozens of git repositories. Work is described in plain language. An interactive planning session explores the codebase and writes tasks. A background worker then runs each task on its own branch with no one watching, runs the repo\'s documented test, lint and typecheck commands, and opens a pull request. Five minutes later, a separate review pass posts inline comments and a third pass addresses them. Each stage runs on its own model and reasoning level, and new codebases are scaffolded end to end: GitHub repo, pinned toolchain, tests, CI and agent docs. A portal poller turns kelldev.ai customer briefs into demos. It screens each brief with a structured model call that returns a verdict and a spec, creates a repo from the demo template, sets up the repo\'s GitHub environment and secrets, and queues a task that runs only after a person approves it. It also takes demos down on schedule through a GitHub Actions workflow. State lives in SQLite through Drizzle ORM, and a Next.js dashboard streams live task, execution, pull request and cost updates over server-sent events. It runs on a single EC2 instance defined in Terraform, with a persistent EBS volume, Secrets Manager and S3 backups. It has no public inbound ports and is reachable only over Tailscale. The instance stops itself after 30 idle minutes and is started again by a GitHub Action, or by the kelldev.ai portal when a brief arrives.'
   }]
 
 export default portfolioItemArray
